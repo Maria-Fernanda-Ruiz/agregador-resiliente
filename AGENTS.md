@@ -33,7 +33,7 @@ Leer en este orden:
    cada pregunta con sus opciones, se marca una recomendada y se explica qué cambia
    con cada una. Cuando el equipo confirma:
    - se agrega una fila a la tabla «Log de decisiones» del README con el siguiente ID
-     (D16, D17, …), las alternativas descartadas, el porqué, la sección REASONS que
+     (D17, D18, …), las alternativas descartadas, el porqué, la sección REASONS que
      alimenta y la ronda;
    - si cierra un pendiente, se borra de la tabla de pendientes y la decisión dice
      «cierra P0X»;
