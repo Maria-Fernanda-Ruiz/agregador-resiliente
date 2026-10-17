@@ -9,7 +9,9 @@
 | Historia | [AR-001 Story](../../requirements/AR-001-202610171311-[Story]-agregador-resiliente.md) |
 
 Todo lo de este documento sale de peticiones reales con `curl` (17 de octubre de
-2026) y de leer `servicio_inestable.py`. Nada está supuesto.
+2026), de leer `servicio_inestable.py` y, para la sección 3, de correrlo en un
+contenedor. Nada está supuesto. Los hallazgos S1–S8 salen de leer el código; los
+C1–C4, de ejecutarlo.
 
 ## Palabras clave del dominio
 
@@ -97,7 +99,20 @@ flowchart TD
 | S7 | El docente puede arrancarlo con otros parámetros (el ejemplo del enunciado usa `--latencia 5`) | Timeouts, intentos y esperas deben ser configurables por variables de entorno. |
 | S8 | El servicio imprime una línea por petición con hora en milisegundos (`flush=True`) | Ese log sirve como evidencia de intentos, esperas y respeto de Retry-After. |
 
-## 3. Casos borde que van al canvas (Safeguards)
+## 3. El servicio inestable dentro de Docker (D16)
+
+Verificado el 2026-10-17 corriendo `servicio_inestable.py` sin modificar en un
+contenedor `python:3.12-slim` (Docker 29.7.2), con una instancia en el host por
+defecto y otra con `--host 0.0.0.0`.
+
+| # | Hallazgo | Consecuencia para nosotros |
+|---|---|---|
+| C1 | Con el host por defecto (`127.0.0.1`) el servicio responde **solo desde dentro** del contenedor; desde la máquina, `curl` falla con la conexión cortada (exit 56) | En Compose hay que arrancarlo con `--host 0.0.0.0`. Es un parámetro, así que no se modifica el archivo (S3). |
+| C2 | `docker logs` sale **vacío** al arrancar: los dos `print` del inicio no usan `flush` y quedan en el buffer de Python. Las líneas por petición sí salen, porque usan `flush=True` | `PYTHONUNBUFFERED=1` en los contenedores (P17), o el mensaje de arranque no aparece en la evidencia. |
+| C3 | Las peticiones que llegan a través de Docker aparecen con **una sola IP** (`172.17.0.1`, el gateway de Docker) | El bloqueo por IP tras un 429 sigue aplicando igual: la compuerta de D14 es necesaria también con Docker. |
+| C4 | `docker stop` tarda 0,5 s y sale con código 0: uvicorn maneja SIGTERM aunque sea el PID 1 | No se repite el problema del taller de Docker, donde `http.server` ignoraba SIGTERM y Docker lo mataba a los 10 s. Hay que comprobarlo también con el agregador. |
+
+## 4. Casos borde que van al canvas (Safeguards)
 
 1. Nunca reintentar 400 ni 404, ni siquiera los 400 de Open-Meteo.
 2. Nunca llamar al servicio inestable antes de que venza un Retry-After recibido.
@@ -105,9 +120,12 @@ flowchart TD
 4. Validar los parámetros propios (422) antes de gastar una llamada externa.
 5. Toda llamada saliente lleva un timeout explícito.
 6. Un recorrido de paginación termina siempre (cursor `null` o error), sin bucles.
+7. Todo lo que se ejecute corre en contenedores (D16), y el agregador termina limpio
+   con `docker stop` (C4).
 
-## 4. Preguntas abiertas que salieron del análisis
+## 5. Preguntas abiertas que salieron del análisis
 
 Están en la tabla de [decisiones pendientes](../../README.md#decisiones-pendientes)
 del README: P02 (TTL), P08 (intentos y plazo total), P09 (parcial sin datos),
-P10 (búsqueda vacía), P11 (reintentos hacia Open-Meteo) y P12 (502 vs 504).
+P10 (búsqueda vacía), P11 (reintentos hacia Open-Meteo), P12 (502 vs 504) y
+P16–P21 (cómo se arma Docker).

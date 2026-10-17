@@ -7,16 +7,17 @@ resiliente con un dashboard encima. El requerimiento se trabaja con **SPDD**.
 ## Dónde quedó el trabajo
 
 El 2026-10-17 Javier, con su agente, hizo los pasos 1 y 3 de SPDD, e iteró con el
-equipo 15 decisiones en tres rondas de preguntas. **No hay código de la aplicación**:
+equipo 15 decisiones en tres rondas de preguntas. Después el equipo agregó D16:
+Docker para todo lo que se ejecute. **No hay código de la aplicación**:
 el equipo pidió cerrar las decisiones antes de desarrollar. El trabajo quedó a medias
 a propósito, en el PR de la rama `docs/requerimientos-iniciales`, para que otra
 persona del equipo lo continúe.
 
 Leer en este orden:
 
-1. [`README.md`](README.md): estado, log de decisiones D01–D15, riesgos R1–R3,
-   pendientes P01–P15 y supuestos S1–S3.
-2. [`requirements/AR-001-…-[Story]-…`](requirements/): historias HU1–HU7 con sus
+1. [`README.md`](README.md): estado, log de decisiones D01–D16, riesgos R1–R4,
+   pendientes P01–P21 y supuestos S1–S3.
+2. [`requirements/AR-001-…-[Story]-…`](requirements/): historias HU1–HU8 con sus
    criterios de aceptación.
 3. [`spdd/analysis/AR-001-…-[Analysis]-…`](spdd/analysis/): lo que se encontró
    explorando Open-Meteo y leyendo `servicio_inestable.py`. Todo está verificado con
@@ -52,14 +53,20 @@ Leer en este orden:
    commit.
 8. Git: una rama y un PR por cada cosa terminada, con Conventional Commits. Nunca se
    hace push directo a `main`. Prefijos de rama: `docs/`, `feat/`, `fix/`.
+9. **Todo lo que se ejecute del prototipo corre en contenedores** (D16): el agregador,
+   el servicio inestable, las pruebas y la medición de latencia. Las instrucciones de
+   arranque son con Docker; las de `venv` solo existen como plan B si se aprueba P20.
+   El servicio inestable va siempre con `--host 0.0.0.0` dentro de un contenedor
+   (hallazgo C1 del análisis).
 
 ## Próximos pasos, en orden
 
 1. **Revisar el PR de `docs/requerimientos-iniciales`**: confirmar D07 (quedó como
    propuesta sin objeciones) y los supuestos S1–S3.
-2. **Cerrar los pendientes P01–P14 con el equipo**, en rondas cortas de preguntas.
+2. **Cerrar los pendientes P01–P21 con el equipo**, en rondas cortas de preguntas.
    Los primeros que conviene cerrar son P08, P09 y P12, porque dan forma a la
-   resiliencia, que vale 30 puntos.
+   resiliencia, que vale 30 puntos. Después, P20 (plan B sin Docker), porque depende
+   de confirmar con el docente si tiene Docker (riesgo R4).
 3. Revisar el análisis en equipo y cambiar su estado a «revisado».
 4. Escribir el canvas en
    `spdd/prompt/AR-001-AAAAMMDDhhmm-[Feat]-agregador-backend.md` a partir de la

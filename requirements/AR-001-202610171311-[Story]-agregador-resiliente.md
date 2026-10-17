@@ -4,7 +4,7 @@
 |---|---|
 | ID | AR-001 |
 | Tipo | Historia (paso 1 de SPDD) |
-| Estado | Borrador revisado en las rondas 1–3 de decisiones; pendiente cerrar P01–P15 del [README](../README.md#decisiones-pendientes) |
+| Estado | Borrador revisado en las rondas 1–4 de decisiones; pendiente cerrar P01–P21 del [README](../README.md#decisiones-pendientes) |
 | Fecha | 2026-10-17 |
 | Fuente | Enunciado «Evaluación-taller: Agregador resiliente de APIs», Sistemas Distribuidos, UIS |
 
@@ -89,6 +89,26 @@ creación no genere dos alertas.
 - Latencia del endpoint de clima con caché y sin ella, registrada en una tabla del
   README ([P03, P04](../README.md#decisiones-pendientes)).
 
+### HU8 · Levantar todo en contenedores con un comando
+
+Como docente quiero levantar el agregador y el servicio inestable con un solo comando
+en contenedores, y poder apuntar el agregador a mi propia instancia, para revisar la
+entrega sin instalar dependencias en mi máquina ([D16](../README.md#log-de-decisiones)).
+
+- Un comando de Docker Compose levanta el agregador y el servicio inestable; la
+  estructura exacta está en [P16](../README.md#decisiones-pendientes).
+- El servicio inestable arranca con `--host 0.0.0.0` (si no, no es alcanzable desde
+  fuera de su contenedor) y sus parámetros de fallos se configuran desde Compose.
+- La URL del servicio inestable se cambia con una variable de entorno, incluido el
+  caso de una instancia que corre fuera de Compose
+  ([P18](../README.md#decisiones-pendientes)).
+- La colección de pruebas y la medición de latencia también corren en contenedores.
+- `GET /salud` del agregador responde cuando el contenedor está listo
+  ([P19](../README.md#decisiones-pendientes)).
+- `docker compose logs` muestra los intentos y las esperas desde el arranque (con
+  `PYTHONUNBUFFERED=1`), porque esos logs son la evidencia de los reintentos.
+- `docker stop` termina el agregador limpio, sin esperar los 10 s de gracia.
+
 ### HU7 · Dashboard (fase 2, después del backend)
 
 - Página estática en `/dashboard` servida por el mismo FastAPI, con Chart.js, que
@@ -108,6 +128,9 @@ creación no genere dos alertas.
    Retry-After.
 4. Colección de peticiones de prueba que el docente pueda ejecutar.
 5. `/docs` describe correctamente el contrato.
+6. Dockerfile y Docker Compose con los que todo lo anterior corre en contenedores
+   desde un clon limpio del repo (D16). Si se aprueba el plan B (P20), también hay
+   instrucciones sin Docker.
 
 ## Cómo se califica (para priorizar)
 
@@ -120,3 +143,8 @@ creación no genere dos alertas.
 | Idempotencia demostrada | 10 | HU4 |
 | Preguntas de análisis | 15 | README |
 | Consumo cruzado (opcional) | +10 | [P15](../README.md#decisiones-pendientes) |
+
+La reproducibilidad y la desplegabilidad (HU8) no aparecen en esta tabla del
+enunciado. El equipo las incluye porque, según el equipo, son temas importantes de la
+evaluación. Si el docente revisa con Docker, el criterio de
+«ejecuta la colección contra su propia instancia» depende directamente de HU8.

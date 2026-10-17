@@ -11,8 +11,8 @@ registrada en este README.
 
 ## Estado
 
-> **Fase actual: aclarar requerimientos (paso 2 de SPDD).** Hay 15 decisiones tomadas
-> y 15 pendientes. **Todavía no hay código**: el equipo decidió cerrar las decisiones
+> **Fase actual: aclarar requerimientos (paso 2 de SPDD).** Hay 16 decisiones tomadas
+> y 21 pendientes. **Todavía no hay código**: el equipo decidió cerrar las decisiones
 > antes de desarrollar. Lo único ejecutable es `servicio_inestable.py`, del docente.
 
 ```mermaid
@@ -42,6 +42,9 @@ falta que el equipo lo revise.
 
 ## Qué vamos a construir
 
+Todo lo que se ejecute corre en contenedores Docker ([D16](#log-de-decisiones)): el
+agregador, el servicio inestable, las pruebas y la medición de latencia.
+
 API propia (todo bajo `/v1`, salvo la salud):
 
 | Método y ruta | Qué hace | Dependencia |
@@ -55,16 +58,20 @@ API propia (todo bajo `/v1`, salvo la salud):
 
 ```mermaid
 flowchart LR
-    U(["Navegador"]) -->|"/dashboard"| D["Dashboard<br/>HTML + Chart.js"]
-    D -->|"fetch a /v1/..."| API
-    subgraph AG["Agregador FastAPI"]
-        API["API propia /v1"] --> CA["Caché TTL<br/>en memoria"]
-        API --> RS["Reintentos con backoff<br/>+ compuerta Retry-After"]
-        API --> ID["Almacén de<br/>Idempotency-Key"]
+    U(["Navegador<br/>dashboard HTML + Chart.js"]) -->|"GET /dashboard y fetch a /v1/..."| API
+    subgraph DC["docker compose"]
+        subgraph AG["contenedor agregador · FastAPI"]
+            API["API propia /v1"] --> CA["Caché TTL<br/>en memoria"]
+            API --> RS["Reintentos con backoff<br/>+ compuerta Retry-After"]
+            API --> ID["Almacén de<br/>Idempotency-Key"]
+        end
+        SI["contenedor servicio-inestable<br/>--host 0.0.0.0"]
+        PR["contenedor pruebas<br/>a demanda (propuesta P16)"]
     end
     CA --> GEO["Open-Meteo geocoding<br/>search · get"]
     CA --> FC["Open-Meteo<br/>forecast"]
-    RS --> SI["Servicio inestable<br/>/sensores"]
+    RS -->|"SERVICIO_INESTABLE_URL"| SI
+    PR -.->|"colección de peticiones"| API
 ```
 
 Cómo se encadenan las llamadas a Open-Meteo cuando el usuario busca una ciudad:
@@ -125,7 +132,8 @@ Los archivos siguen el patrón del artículo: `ID-AAAAMMDDhhmm-[Tipo]-descripcio
 ## Log de decisiones
 
 Todas se tomaron el 2026-10-17. La ronda 0 es lo que el equipo trajo decidido; de
-la 1 a la 3 se iteró con el agente antes de escribir nada.
+la 1 a la 3 se iteró con el agente antes de escribir nada; la 4 la propuso el equipo
+después de abrir el PR.
 
 | ID | Decisión | Alternativas descartadas | Por qué | REASONS | Ronda |
 |---|---|---|---|---|---|
@@ -144,6 +152,7 @@ la 1 a la 3 se iteró con el agente antes de escribir nada.
 | D13 | Timeout de lectura **adaptativo: 3 s → 5 s → 8 s** según el intento | 3 s fijo; 5–6 s fijo | El primer intento corta rápido las respuestas lentas y los siguientes toleran la latencia (4 s, o 5 s del docente) | A | 3 |
 | D14 | Lecturas con **máximo 4 a la vez + compuerta compartida de Retry-After** | Secuencial; bajo demanda desde el navegador | El bloqueo por 429 es por IP: sin compuerta, las llamadas en vuelo aparecerían como «no respetó Retry-After» en el log del docente | A, S | 3 |
 | D15 | Fallo parcial: **devolver siempre lo obtenido**, marcado como incompleto | Páginas todo o nada y lecturas parciales; todo o nada | Más disponibilidad para el dashboard. Ver el riesgo R1 | A | 3 |
+| D16 | **Docker para todo lo que se ejecute**: agregador, servicio inestable, pruebas y medición de latencia | Solo `venv` local (lo que asumía el enunciado y lo que había recomendado el agente); Docker opcional | Según el equipo, la reproducibilidad y la desplegabilidad del prototipo son temas importantes de la evaluación. Cómo se arma queda en P16–P21. Ver el riesgo R4 | S, N | 4 |
 
 ### Riesgos y matices abiertos
 
@@ -152,6 +161,7 @@ la 1 a la 3 se iteró con el agente antes de escribir nada.
 | R1 | D15 choca con el enunciado cuando **no se obtiene nada**: exige «502 o 504 si la dependencia falla» y prohíbe el 500 genérico | Cerrar [P09](#decisiones-pendientes) (propuesta: con cero datos, 502/504). Además, una lista incompleta debe marcarse en las estadísticas del dashboard. |
 | R2 | Con D13 el peor caso se alarga: 3 + 5 + 8 + 8 s de timeouts más las esperas pasa de 25 s | Cerrar [P08](#decisiones-pendientes): número máximo de intentos y plazo total por petición. |
 | R3 | D11: el repo es público antes de la entrega | Aceptado por el equipo. |
+| R4 | D16 depende de que el docente tenga Docker. En el taller de FastAPI de esta misma materia se dijo que no lo tenía, y el enunciado pide no instalar nada que exija reiniciar (Docker Desktop en Windows suele pedir WSL2 y un reinicio) | Confirmar con el docente y cerrar [P20](#decisiones-pendientes) (plan B sin Docker). |
 
 ### D12 en detalle: reintentos, función por función
 
@@ -281,33 +291,51 @@ tabla de arriba.
 | P13 | Formato del log de evidencias | Una línea por intento con hora en ms, intento n/MÁXIMO, URL, resultado, espera y Retry-After, junto al log del servicio (no tenemos `tcpspy.py`) | Entrega |
 | P14 | Herramienta SPDD | Plantillas propias de este repo (sin instalar nada) frente a la CLI comunitaria OpenSPDD | Canvas |
 | P15 | ¿Hacemos la Parte E (consumo cruzado, +10)? | Decidir cuando el backend esté terminado | — |
+| P16 | Estructura de Docker Compose | Servicios `agregador` y `servicio-inestable`; las pruebas y la medición de latencia como servicio `pruebas` bajo un perfil, con `docker compose run --rm pruebas`. Los parámetros de fallos del servicio inestable se pasan desde Compose como argumentos de arranque | D16 |
+| P17 | Imagen del agregador | `python:3.12-slim` fijada (¿por tag o por digest?), `requirements.txt` con versiones exactas, usuario no root, `PYTHONUNBUFFERED=1` y `CMD` en forma exec | D16 |
+| P18 | Cómo apuntar a la instancia del docente | `SERVICIO_INESTABLE_URL`, por defecto `http://servicio-inestable:9000` (nombre del servicio en Compose). Si el docente corre su servicio en su máquina, `http://host.docker.internal:9000`, que en Linux necesita `extra_hosts: ["host.docker.internal:host-gateway"]` | D16 |
+| P19 | Healthchecks y orden de arranque | Healthcheck a `/salud` en los dos servicios, hecho con Python porque la imagen slim no trae `curl`; el agregador arranca con `depends_on: condition: service_healthy` | D16 |
+| P20 | ¿Plan B sin Docker documentado? (R4) | Sí: una sección corta con `venv` en el README; cuesta poco y cubre una sala sin Docker | D16 |
+| P21 | ¿CI que demuestre la reproducibilidad? | GitHub Actions que en cada PR construya las imágenes, levante Compose y corra la colección de pruebas | D16 |
 
 ### Supuestos (no se preguntaron; confirmar al revisar)
 
 | ID | Supuesto |
 |---|---|
 | S1 | La API y el código van en español, como el enunciado (`/v1/ciudades`, `alertas`). |
-| S2 | Compatibilidad con Python 3.11 o superior; la sala del docente usa Windows. |
+| S2 | Con D16, la versión de Python la fija la imagen (propuesta: 3.12, ver P17). Si se acepta el plan B (P20), el código debe correr también con Python 3.11 o superior en Windows. |
 | S3 | `servicio_inestable.py` no se modifica: es del docente y se configura por parámetros. |
 
 ## Cómo correr lo que ya existe
 
-Por ahora solo el servicio inestable:
+Por ahora solo el servicio inestable. Todavía no hay Dockerfile ni Compose (P16), pero
+se puede correr en un contenedor con la imagen oficial de Python:
+
+```bash
+docker run --rm -p 9000:9000 -v "$PWD":/app:ro -w /app python:3.12-slim \
+  sh -c "pip install -q fastapi uvicorn && exec python servicio_inestable.py --host 0.0.0.0 --semilla 42"
+curl http://127.0.0.1:9000/salud
+```
+
+**`--host 0.0.0.0` es obligatorio dentro de un contenedor.** El servicio escucha por
+defecto en `127.0.0.1`, que dentro del contenedor solo responde desde adentro; desde
+la máquina la conexión se corta. Se verificó el 2026-10-17 (ver el
+[análisis](spdd/analysis/), hallazgo C1).
+
+Sin Docker (plan B, pendiente de P20):
 
 ```bash
 python -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install fastapi uvicorn httpx
-python servicio_inestable.py                                # puerto 9000
-python servicio_inestable.py --tasa-fallos 0.4 --semilla 42 # fallos reproducibles
-curl http://127.0.0.1:9000/salud
+python servicio_inestable.py --semilla 42
 ```
 
 ## Cómo continuar
 
 El trabajo quedó a medias a propósito para que el equipo lo continúe. Las
 instrucciones para cualquier persona o agente están en [`AGENTS.md`](AGENTS.md). En
-resumen: revisar este PR, cerrar P01–P15 y registrar cada decisión en la tabla; luego
+resumen: revisar este PR, cerrar P01–P21 y registrar cada decisión en la tabla; luego
 escribir el canvas REASONS en `spdd/prompt/` con la plantilla, y solo después de
 revisarlo en equipo, generar código.
 
