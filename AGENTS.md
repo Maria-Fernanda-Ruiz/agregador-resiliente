@@ -33,6 +33,11 @@ Los PR #2, #3 y #4 se fusionaron, pero el #3 y el #4 quedaron fusionados contra 
 ramas base y no contra `main` (ver «Cómo seguir»). Las rondas 7 y 8 llegaron a `main`
 con un PR aparte, desde la rama `docs/rondas-7-y-8-a-main`.
 
+Después se escribió el canvas del backend, en la rama `docs/canvas-backend`. El equipo
+pidió un canvas breve, que cite las decisiones en vez de repetirlas, para pasar al
+código en cuanto se revise. Al escribirlo salió P23: qué pide exactamente la Parte E,
+porque el enunciado no está en el repo.
+
 Leer en este orden:
 
 1. [`README.md`](README.md): estado, integrantes y roles, log de decisiones D01–D40,
@@ -44,8 +49,11 @@ Leer en este orden:
    verificadas con peticiones reales; la 4 es una simulación de los reintentos
    ([`simulacion_reintentos.py`](spdd/analysis/simulacion_reintentos.py)), que hay
    que validar con el servicio real cuando exista el código.
-4. [`spdd/template/REASONS-canvas.md`](spdd/template/REASONS-canvas.md): la plantilla
-   del siguiente paso.
+4. [`spdd/prompt/AR-001-…-[Feat]-agregador-backend.md`](spdd/prompt/): el canvas del
+   backend. Su sección Operations es la lista de tareas del código, con el rol de cada
+   una (D40).
+5. [`spdd/template/REASONS-canvas.md`](spdd/template/REASONS-canvas.md): la plantilla,
+   para los canvas que faltan (Parte E y dashboard).
 
 ## Reglas
 
@@ -64,7 +72,7 @@ Leer en este orden:
    - se actualiza el contador de la sección «Estado».
 
    Si al escribir el canvas o el código aparece una pregunta nueva, se agrega a la
-   tabla de pendientes como P23, P24, …, y no se genera código para esa parte hasta
+   tabla de pendientes con el siguiente ID (P24, P25, …), y no se genera código para esa parte hasta
    cerrarla.
 3. **Primero el canvas, después el código.** Si cambia el comportamiento, se corrige
    el canvas y luego se regenera el código. Si es un refactor sin cambio de
@@ -89,18 +97,16 @@ Leer en este orden:
 
 ## Próximos pasos, en orden
 
-1. Revisar el análisis en equipo y cambiar su estado a «revisado». De paso, Maria
-   Fernanda revisa su fila en «Integrantes y roles» del README.
-2. Escribir el canvas en
-   `spdd/prompt/AR-001-AAAAMMDDhhmm-[Feat]-agregador-backend.md` a partir de la
-   plantilla (D38). Cada afirmación debe citar las D de las que depende, y lo que
-   pide exactamente la Parte E se detalla ahí (D39).
-3. Revisar el canvas en equipo.
-4. Solo entonces generar código, tarea por tarea según la sección Operations: primero
+1. **Revisar el canvas del backend** en su PR, incluida la sección «Detalles que fija
+   este canvas», y cambiar su estado a «revisado por el equipo». De paso: revisar el
+   análisis, y Maria Fernanda revisa su fila en «Integrantes y roles».
+2. Generar el código, tarea por tarea según la sección Operations: primero
    el backend (D09), después la Parte E y al final el dashboard (D39). Cada integrante
    se ocupa de las piezas de su rol (D40). Con el backend listo, medir
    `GET /v1/sensores` contra el servicio real y comparar con la simulación (sección 4
    del análisis); si no coincide, se corrige primero el canvas.
+3. Antes de la Parte E, cerrar P23 y escribir su canvas; al final, el canvas del
+   dashboard.
 
 ## Cómo seguir
 
