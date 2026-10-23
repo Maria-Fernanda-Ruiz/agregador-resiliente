@@ -11,10 +11,11 @@ registrada en este README.
 
 ## Estado
 
-> **Fase actual: aclarar requerimientos (paso 2 de SPDD).** Hay 31 decisiones tomadas
-> y 9 pendientes. **Todavía no hay código**: el equipo decidió cerrar las decisiones
-> antes de desarrollar. Lo único ejecutable es `servicio_inestable.py`, del docente,
-> y la simulación de reintentos del análisis.
+> **Fase actual: revisar el análisis (paso 3 de SPDD) y pasar al canvas.** Las
+> decisiones están cerradas: hay 40 tomadas y ninguna pendiente. **Todavía no hay
+> código**: el equipo decidió cerrar las decisiones antes de desarrollar. Lo único
+> ejecutable es `servicio_inestable.py`, del docente, y la simulación de reintentos
+> del análisis.
 
 ```mermaid
 flowchart LR
@@ -27,19 +28,22 @@ flowchart LR
     G -.->|"refactor sin cambio:<br/>se sincroniza el canvas"| CV
     classDef hecho fill:#2e7d32,stroke:#1b5e20,color:#ffffff
     classDef actual fill:#f9a825,stroke:#f57f17,color:#000000
-    class H hecho
-    class C,AN actual
+    class H,C hecho
+    class AN actual
 ```
 
 Verde: terminado. Amarillo: en curso. El análisis ya tiene la exploración hecha, pero
-falta que el equipo lo revise.
+falta que el equipo lo revise; después sigue el canvas.
 
 ## Integrantes y roles
 
 | Integrante | Código | Rol |
 |---|---|---|
-| Javier Alexi Chacón Suárez | 2160044 | Pendiente ([P01](#decisiones-pendientes)) |
-| *(compañera, nombre por completar)* | | Pendiente ([P01](#decisiones-pendientes)) |
+| Javier Alexi Chacón Suárez | 2160044 | Servicio inestable con Docker, y resiliencia: reintentos, compuerta y log de evidencias |
+| Maria Fernanda Ruiz Velasquez | 2253689 | Cliente de Open-Meteo, y API propia + pruebas + README: rutas de ciudades y alertas, caché, idempotencia y colección de pruebas |
+
+Los roles salen de [D40](#log-de-decisiones). El dashboard y la Parte E se reparten al
+terminar el backend.
 
 ## Qué vamos a construir
 
@@ -51,13 +55,14 @@ API propia (todo bajo `/v1`, salvo la salud):
 
 | Método y ruta | Qué hace | Dependencia |
 |---|---|---|
-| `GET /v1/ciudades?nombre=&pais=` | Candidatos de una búsqueda, con departamento y país | Open-Meteo geocoding `search` |
-| `GET /v1/ciudades/{id}/clima?dias=` | Clima actual y pronóstico por día de la ciudad elegida | Open-Meteo geocoding `get` → `forecast` |
+| `GET /v1/ciudades?nombre=&pais=` | Candidatos de una búsqueda, con departamento y país; lista vacía si no hay ninguno | Open-Meteo geocoding `search` |
+| `GET /v1/ciudades/{id}/clima?dias=` | Clima actual y pronóstico por día de la ciudad elegida, con `Cache-Status` | Open-Meteo geocoding `get` → `forecast` |
 | `GET /v1/sensores` | Todos los sensores con su lectura, tolerando fallos | Servicio inestable (paginación + lecturas) |
 | `POST /v1/alertas` | Crea una alerta de umbral (201 + `Location`); idempotente con `Idempotency-Key` obligatoria | Ninguna |
 | `GET /v1/alertas` y `GET /v1/alertas/{id}` | Lista las alertas o trae una | Ninguna |
+| `GET /v1/metricas` | Reintentos por causa, caché, latencias y estado de las dependencias, para el panel de resiliencia | Ninguna |
 | `GET /salud` | Comprobación de vida del agregador | Ninguna |
-| `GET /dashboard` | Dashboard estático (fase 2) | Nuestra propia API |
+| `GET /dashboard` | Dashboard estático; se hace al final, después de la Parte E (D39) | Nuestra propia API |
 
 ```mermaid
 flowchart LR
@@ -142,7 +147,8 @@ con el apoyo de una simulación (sección 4 del [análisis](spdd/analysis/), hal
 M1–M6), y confirmó D07 y los supuestos S1–S3. La 6 la propuso el equipo después de
 abrir el PR de la ronda 5. La 7, el mismo día, cerró la idempotencia y cómo se arma
 Docker; lo de Docker se verificó con Compose antes de registrarlo (hallazgos C5–C7
-del análisis).
+del análisis). La 8, también el mismo día, cerró los nueve pendientes que quedaban:
+caché, medición, métricas, evidencia, alcance y roles.
 
 | ID | Decisión | Alternativas descartadas | Por qué | REASONS | Ronda |
 |---|---|---|---|---|---|
@@ -154,7 +160,7 @@ del análisis).
 | D06 | Log visualizado como **tabla + diagramas Mermaid** | Línea de tiempo; solo tabla | Se ve en GitHub y en Obsidian sin herramientas extra | N | 1 |
 | D07 | Ciudades en dos endpoints: búsqueda `GET /v1/ciudades?nombre=&pais=` y clima por id `GET /v1/ciudades/{id}/clima` | `GET /v1/ciudades/{nombre}/clima` del catálogo | Derivada de D05: el id identifica una sola ciudad, y `get` + `forecast` son las dos llamadas distintas que exige el taller. *Propuesta en la ronda 2 sin objeciones y confirmada en la ronda 5.* | O | 2 |
 | D08 | Dashboard en **HTML + JS (Chart.js)** servido por el mismo FastAPI | Streamlit; frontend aparte en React/Vite | Un solo proceso para el docente, sin CORS, dentro de las tecnologías del taller | S | 2 |
-| D09 | **Backend primero** (partes A–D), dashboard después | En paralelo; dashboard desde el inicio | La rúbrica no da puntos por el dashboard; si falta tiempo, que falte lo que no suma | O | 2 |
+| D09 | **Backend primero** (partes A–D), dashboard después | En paralelo; dashboard desde el inicio | La rúbrica no da puntos por el dashboard; si falta tiempo, que falte lo que no suma. *Con D39, la Parte E va entre el backend y el dashboard.* | O | 2 |
 | D10 | Dashboard con 4 vistas: **resiliencia, pronóstico, comparar ciudades, sensores y exterior vs interior** | Subconjuntos | El panel de resiliencia muestra en vivo lo que sí se califica; la relación exterior vs interior se arma en el dashboard llamando a los dos endpoints | R | 2 |
 | D11 | Repo en `javierchacon262/agregador-resiliente`, **público** | Privado con colaboradores; organización del grupo | Elección del equipo. Riesgo aceptado: otros grupos pueden ver el código antes de la entrega | S | 2 |
 | D12 | Reintentos **a mano**, con **cada función explicada en este log** ([detalle abajo](#d12-en-detalle-reintentos-función-por-función)) | tenacity; reintentos del transporte de httpx (solo reintentan errores de conexión, no 503 ni 429) | Es lo que más pesa en la evaluación (30 puntos) y cualquiera del grupo debe poder explicarlo | A | 3 |
@@ -177,6 +183,15 @@ del análisis).
 | D29 | Imagen base **fijada por tag exacto y digest**: `python:3.12.15-slim-trixie@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704`. Además: `requirements.txt` con versiones exactas, usuario no root, `PYTHONUNBUFFERED=1` y `CMD` en forma exec. Cierra P17 | Tag exacto sin digest; tag flotante `python:3.12-slim` | Es la misma imagen byte a byte en cualquier máquina, de la entrega a la revisión; actualizarla es a mano. `PYTHONUNBUFFERED` hace que los logs salgan desde el arranque (C2) y el `CMD` exec deja que `docker stop` termine limpio (C4) | S, N | 7 |
 | D30 | `SERVICIO_INESTABLE_URL`, por defecto `http://servicio-inestable:9000`, con dos casos documentados: (A) el servicio del Compose con los parámetros del docente; (B) su propia instancia en otro contenedor publicado en su máquina, con `http://host.docker.internal:9000`. El Compose trae `extra_hosts: ["host.docker.internal:host-gateway"]` para que B funcione en Linux. Cierra P18 | Solo el del Compose; red de Docker compartida | Cubre las dos formas en que el docente puede tener «su propia instancia» sin pedirle que sepa de redes de Docker. Verificado: sin `extra_hosts`, en Linux el nombre no resuelve (C6) | S | 7 |
 | D31 | Healthcheck a `/salud` en los dos servicios, con Python (la imagen no trae `curl`). **El agregador no espera al servicio inestable**; las pruebas esperan a que los dos estén sanos, y `docker compose up --wait` vuelve cuando están listos. Cierra P19 | El agregador espera al servicio (`depends_on: service_healthy`, la propuesta de P19); sin healthchecks | El agregador es resiliente: si el servicio no está, reintenta y responde 502/504 (D20, D22), y así arranca igual en el caso B de D30. Verificado: los chequeos no aparecen en el log del servicio, que es la evidencia (C7) | S | 7 |
+| D32 | **Caché con TTL, a mano** (diccionario y reloj monotónico, en memoria): 24 h para la búsqueda y la ficha de una ciudad, 15 min para el pronóstico. Los sensores **no** se cachean. Cierra P02 | Pronóstico 5 min; vencer cuando Open-Meteo refresque (`current.time` + `interval`) | Las ciudades no cambian. 15 min es el intervalo con el que Open-Meteo refresca el dato actual (E11): en el peor caso el dato llega con unos 30 min. Los sensores no se cachean porque su endpoint es el que demuestra la resiliencia | A | 8 |
+| D33 | `Cache-Control: no-cache` en la petición **se salta la caché** y guarda la respuesta nueva. Las respuestas que usan caché llevan **`Cache-Status`** (RFC 9211): `agregador; hit; ttl=842`, `agregador; fwd=uri-miss; stored`, `agregador; fwd=request; stored` o `agregador; fwd=stale; stored`, con una entrada por caché (ciudades y pronóstico) cuando usó las dos. Cierra P03 | `X-Cache: HIT/MISS` (la propuesta de P03); parámetro `?cache=no` | Son las dos cabeceras estándar de HTTP para esto, y `Cache-Status` además dice por qué se fue a Open-Meteo (no estaba, venció o se la saltó), lo que sirve al medir y al explicar la caché | R, A | 8 |
+| D34 | **Medición de latencia**: un script en el contenedor de pruebas (D26) hace 20 peticiones en frío (con `no-cache`) y 20 en caliente a `/v1/ciudades/{id}/clima`, de a una, y produce la tabla del README con mediana, p95 y máximo. Cierra P04 | 100 + 100; herramienta de carga (oha, hey) | Mide desde el cliente lo que vería el usuario, con pocas llamadas a Open-Meteo desde la IP compartida (E13). Con 20 muestras el p95 es la segunda peor, y así se debe leer | O | 8 |
+| D35 | **`GET /v1/metricas`** en JSON, con contadores en memoria desde el arranque: intentos y fallos por causa y por dependencia, respuestas 502/504, aciertos y fallos de caché, latencia por endpoint (mediana y p95 de las últimas 100) y estado de la compuerta. Lo lee el panel de resiliencia (D10). Cierra P05 | `/metrics` para Prometheus; sin endpoint de métricas | El panel muestra en vivo lo que se califica (reintentos y Retry-After), y JSON es lo que el dashboard en Chart.js lee sin parsear | R, S | 8 |
+| D36 | Búsqueda sin coincidencias → **200 con lista vacía**; el 404 queda para `/v1/ciudades/{id}` con un id que no existe. Cierra P10 | 404 | Una búsqueda vacía no es un recurso inexistente. Open-Meteo también responde 200 (E1), y el id inexistente da 400, que traducimos a 404 (E6) | R | 8 |
+| D37 | **Log de evidencias en texto**, por stdout, una línea por intento: hora con milisegundos en el formato del servicio, id de la petición recibida, dependencia, intento n/máximo, método y URL, resultado, espera y Retry-After; y una línea final por petición. Los contenedores quedan en UTC, la zona por defecto de la imagen. Cierra P13 | JSON por línea; texto y también JSON | Se lee al lado del log del servicio inestable en la sustentación: con la misma forma de hora y la misma zona se ve, línea a línea, que el intento siguiente salió después de vencer el Retry-After. El id separa las peticiones que van en paralelo (D14) | N | 8 |
+| D38 | **Plantillas propias** de `spdd/template/` para seguir SPDD. Cierra P14 | CLI comunitaria OpenSPDD | Ya existen y funcionan con cualquier agente o a mano, todo lo hecho sigue ese formato y no hay nada que instalar | N | 8 |
+| D39 | **Sí a la Parte E** (consumo cruzado, +10), después del backend y **antes del dashboard**. Lo que pide exactamente se detalla en el canvas. Cierra P15 | Hacerla después del dashboard; no hacerla | Sigue la lógica de D09: suma +10 y el dashboard no suma, así que si falta tiempo, que falte el dashboard | O | 8 |
+| D40 | **Roles**: Javier, servicio inestable con Docker y resiliencia (reintentos, compuerta y log de evidencias); Maria Fernanda, cliente de Open-Meteo y API propia + pruebas + README (rutas de ciudades y alertas, caché, idempotencia y colección). El dashboard y la Parte E se reparten al terminar el backend. Cierra P01 | Javier con Open-Meteo y resiliencia; Javier con resiliencia y API propia | Cada uno es dueño de una dependencia de punta a punta: la resiliencia se prueba contra el servicio inestable, y las rutas de ciudades dependen del cliente de Open-Meteo | O | 8 |
 
 ### Riesgos y matices
 
@@ -294,8 +309,11 @@ si se agotaron los intentos o el plazo → error de dependencia (D20):
   llamadas de esa petición, así que ninguna respuesta nuestra pasa de su plazo.
 - *Por qué en un solo lugar:* así las reglas no se repiten ni se contradicen entre
   endpoints.
-- *Evidencia:* cada intento escribe una línea con la hora, el número de intento, la
-  URL, el resultado, la espera elegida y si vino Retry-After (formato en P13).
+- *Evidencia:* cada intento escribe una línea con la hora, el id de la petición
+  recibida, la dependencia, el número de intento, la URL, el resultado, la espera
+  elegida y si vino Retry-After, en el formato de D37:
+  `[16:40:04.512] r-7f3a sensores 2/6 GET /sensores -> 429 · Retry-After 2 s · espera 2,00 s`.
+- *Métricas:* cada intento suma a los contadores de `GET /v1/metricas` (D35).
 
 **7. `recorrer_paginas()`** → lista de sensores y si quedó completa
 - *Qué hace:* pide `/sensores`, luego `/sensores?cursor=siguiente`, hasta que
@@ -320,21 +338,10 @@ si se agotaron los intentos o el plazo → error de dependencia (D20):
 
 ## Decisiones pendientes
 
-Lo que falta decidir antes de escribir el canvas. Cada fila trae una propuesta para
-arrancar la discusión; no es una decisión hasta que el equipo la confirme y pase a la
-tabla de arriba.
-
-| ID | Pregunta | Propuesta para discutir | Bloquea |
-|---|---|---|---|
-| P01 | Integrantes y rol de cada uno | Los cuatro roles del enunciado: servicio inestable, cliente de Open-Meteo, resiliencia, API propia + pruebas + README | README |
-| P02 | TTL de la caché | Geocodificación 24 h (las ciudades no se mueven); pronóstico 15 min (Open-Meteo refresca cada 900 s); caché a mano con diccionario y reloj monotónico | HU2 |
-| P03 | Cómo saltarse la caché para medir | Cabecera estándar `Cache-Control: no-cache` en la petición, y en la respuesta `X-Cache: HIT` o `MISS` | HU6 |
-| P04 | Método de medición de latencia | Script que hace 20 peticiones en frío y 20 en caliente y reporta mediana y p95 | HU6 |
-| P05 | Endpoint de métricas para el panel de resiliencia | `GET /v1/metricas` con reintentos por causa, aciertos de caché, latencias y estado de las dependencias | D10 |
-| P10 | Búsqueda sin coincidencias | 200 con lista vacía (una búsqueda vacía no es un recurso inexistente); el 404 queda para `/v1/ciudades/{id}` | HU1 |
-| P13 | Formato del log de evidencias | Una línea por intento con hora en ms, intento n/MÁXIMO, URL, resultado, espera y Retry-After, junto al log del servicio (no tenemos `tcpspy.py`) | Entrega |
-| P14 | Herramienta SPDD | Plantillas propias de este repo (sin instalar nada) frente a la CLI comunitaria OpenSPDD | Canvas |
-| P15 | ¿Hacemos la Parte E (consumo cruzado, +10)? | Decidir cuando el backend esté terminado | — |
+**No queda ninguna.** Los 21 pendientes originales (P01–P21), y P22, que salió en la
+ronda 7, se cerraron entre las rondas 5 y 8; cada decisión dice qué pendiente cierra.
+Si aparece una pregunta nueva, se agrega aquí como P23, con una propuesta para
+discutir, y no se genera código para esa parte hasta cerrarla.
 
 ### Supuestos (confirmados en la ronda 5)
 
@@ -365,11 +372,11 @@ No hay instrucciones sin Docker ([D23](#log-de-decisiones)).
 
 ## Cómo continuar
 
-El trabajo quedó a medias a propósito para que el equipo lo continúe. Las
-instrucciones para cualquier persona o agente están en [`AGENTS.md`](AGENTS.md). En
-resumen: cerrar los pendientes que quedan y registrar cada decisión en la tabla; luego
-escribir el canvas REASONS en `spdd/prompt/` con la plantilla, y solo después de
-revisarlo en equipo, generar código.
+Las instrucciones para cualquier persona o agente están en [`AGENTS.md`](AGENTS.md).
+En resumen: las decisiones están cerradas. Lo que sigue es revisar el análisis en
+equipo, escribir el canvas REASONS en `spdd/prompt/` con la plantilla (D38) y, solo
+después de revisarlo en equipo, generar código: primero el backend, después la
+Parte E y al final el dashboard (D09, D39).
 
 ## Fuentes
 

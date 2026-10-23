@@ -34,7 +34,7 @@ Dos servicios distintos, ninguno pide clave:
 
 | # | Comportamiento real | Consecuencia para nosotros |
 |---|---|---|
-| E1 | Ciudad inexistente → **HTTP 200** con `{"generationtime_ms": …}` y **sin** el campo `results` | El modelo debe tratar `results` como opcional. Nosotros decidimos qué responder (P10). |
+| E1 | Ciudad inexistente → **HTTP 200** con `{"generationtime_ms": …}` y **sin** el campo `results` | El modelo debe tratar `results` como opcional. Nosotros respondemos 200 con lista vacía (D36). |
 | E2 | Nombre de 1 letra → 200 vacío | Validar `min_length=2` y responder 422 sin llamar a Open-Meteo. |
 | E3 | Nombres ambiguos: «Bucaramanga» trae 3 (Santander, Cundinamarca, Córdoba); «San José» trae 10 y el primero es California | Origen de D05: devolver candidatos con país y departamento. |
 | E4 | `countryCode=CO` filtra bien (San José → solo Colombia) | Parámetro `pais` opcional en la búsqueda. |
@@ -43,7 +43,7 @@ Dos servicios distintos, ninguno pide clave:
 | E7 | El pronóstico diario viene en **listas paralelas** (`daily.time[]`, `daily.temperature_2m_max[]`, …) | Hay que juntarlas por día; validar que tengan el mismo largo. |
 | E8 | Errores de validación → 400 con `{"error": true, "reason": "…"}` (latitud fuera de rango, variable inexistente, días > 16) | Validar nosotros primero (422) para no gastar llamadas. |
 | E9 | `forecast_days` permite 0–16. Con 20 el mensaje dice «Given 16» (bug de ellos) | No confiar en el texto de `reason`; validar el rango nosotros. |
-| E10 | **No** manda cabeceras de caché ni de límite de peticiones | El TTL lo fijamos nosotros (P02). |
+| E10 | **No** manda cabeceras de caché ni de límite de peticiones | El TTL lo fijamos nosotros (D32), y la respuesta lo informa con `Cache-Status` (D33). |
 | E11 | `current.interval` = 900 s: el dato actual se refresca cada 15 min | Un TTL de pronóstico por encima de 15 min entrega datos viejos. |
 | E12 | `weather_code` es código WMO (p. ej. 51 = llovizna) | Para el dashboard hace falta una tabla de códigos → texto. |
 | E13 | Toda la sala sale por la misma IP pública (dice el enunciado) | La caché reduce la carga compartida; los límites de Open-Meteo se reparten entre grupos. |
@@ -204,10 +204,12 @@ datos», ni un sensor con lectura, que es el caso que responde 502/504 (D21).
 8. Ninguna petición propia pasa de su plazo: ni un intento ni una espera se extienden
    más allá de la fecha límite (D18).
 9. Una `Idempotency-Key` ya usada nunca crea una segunda alerta (D25).
+10. Una petición con `Cache-Control: no-cache` nunca se responde desde la caché (D33).
+11. Los sensores nunca se cachean: su endpoint es el que demuestra la resiliencia (D32).
 
 ## 6. Preguntas abiertas que salieron del análisis
 
 En la ronda 5 se cerraron P08 (D17 y D18), P09 (D21), P11 (D22) y P12 (D20), y en
-la 6, P20 (D23). En la 7 se cerraron P16–P19 y P21, cómo se arma Docker (D27–D31).
-Siguen en la tabla de [decisiones pendientes](../../README.md#decisiones-pendientes)
-del README: P02 (TTL) y P10 (búsqueda vacía).
+la 6, P20 (D23). En la 7 se cerraron P16–P19 y P21, cómo se arma Docker (D27–D31),
+y en la 8, P02 (D32) y P10 (D36). No queda abierta ninguna pregunta que haya salido
+del análisis.
