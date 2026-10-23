@@ -11,8 +11,8 @@ registrada en este README.
 
 ## Estado
 
-> **Fase actual: revisar el análisis (paso 3 de SPDD) y pasar al canvas.** Las
-> decisiones están cerradas: hay 40 tomadas y ninguna pendiente. **Todavía no hay
+> **Fase actual: canvas REASONS del backend (paso 4 de SPDD), en revisión.** Hay 40
+> decisiones tomadas y 1 pendiente (P23, la Parte E), que no bloquea el backend. **Todavía no hay
 > código**: el equipo decidió cerrar las decisiones antes de desarrollar. Lo único
 > ejecutable es `servicio_inestable.py`, del docente, y la simulación de reintentos
 > del análisis.
@@ -29,11 +29,12 @@ flowchart LR
     classDef hecho fill:#2e7d32,stroke:#1b5e20,color:#ffffff
     classDef actual fill:#f9a825,stroke:#f57f17,color:#000000
     class H,C hecho
-    class AN actual
+    class AN,CV actual
 ```
 
-Verde: terminado. Amarillo: en curso. El análisis ya tiene la exploración hecha, pero
-falta que el equipo lo revise; después sigue el canvas.
+Verde: terminado. Amarillo: en curso. El análisis tiene la exploración hecha y falta
+que el equipo lo revise; el [canvas del backend](spdd/prompt/) está escrito y en
+revisión.
 
 ## Integrantes y roles
 
@@ -134,7 +135,7 @@ Reglas que seguimos:
 | [`requirements/`](requirements/) | Historias y criterios de aceptación (paso 1) |
 | [`spdd/analysis/`](spdd/analysis/) | Análisis: exploración de Open-Meteo y del servicio inestable (paso 3) |
 | [`spdd/template/`](spdd/template/) | Plantilla del canvas REASONS |
-| `spdd/prompt/` | Canvas REASONS (paso 4, siguiente) |
+| [`spdd/prompt/`](spdd/prompt/) | Canvas REASONS: el del backend, en revisión (paso 4) |
 
 Los archivos siguen el patrón del artículo: `ID-AAAAMMDDhhmm-[Tipo]-descripcion.md`.
 
@@ -338,10 +339,13 @@ si se agotaron los intentos o el plazo → error de dependencia (D20):
 
 ## Decisiones pendientes
 
-**No queda ninguna.** Los 21 pendientes originales (P01–P21), y P22, que salió en la
-ronda 7, se cerraron entre las rondas 5 y 8; cada decisión dice qué pendiente cierra.
-Si aparece una pregunta nueva, se agrega aquí como P23, con una propuesta para
-discutir, y no se genera código para esa parte hasta cerrarla.
+Los 21 pendientes originales (P01–P21), y P22, que salió en la ronda 7, se cerraron
+entre las rondas 5 y 8; cada decisión dice qué pendiente cierra. Las preguntas nuevas
+se agregan aquí, y no se genera código para esa parte hasta cerrarlas.
+
+| ID | Pregunta | Propuesta para discutir | Bloquea |
+|---|---|---|---|
+| P23 | Qué pide exactamente la Parte E (consumo cruzado). Salió al escribir el canvas: el enunciado no está en el repo | Agregar el texto de la Parte E al repo y escribir su canvas cuando termine el backend (D39) | Parte E |
 
 ### Supuestos (confirmados en la ronda 5)
 
