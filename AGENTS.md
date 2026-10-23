@@ -8,20 +8,26 @@ resiliente con un dashboard encima. El requerimiento se trabaja con **SPDD**.
 
 El 2026-10-17 Javier, con su agente, hizo los pasos 1 y 3 de SPDD, e iteró con el
 equipo 15 decisiones en tres rondas de preguntas. Después el equipo agregó D16:
-Docker para todo lo que se ejecute. **No hay código de la aplicación**:
-el equipo pidió cerrar las decisiones antes de desarrollar. El trabajo quedó a medias
-a propósito, en el PR de la rama `docs/requerimientos-iniciales`, para que otra
-persona del equipo lo continúe.
+Docker para todo lo que se ejecute. Ese trabajo se fusionó en `main` con el PR #1.
+
+El 2026-10-23 se hizo la ronda 5, en la rama `docs/cierra-pendientes-resiliencia`.
+Las decisiones D17–D22 cierran los pendientes de resiliencia (P08, P09, P11 y P12)
+con el apoyo de una simulación, y se confirmaron D07 y los supuestos S1–S3. En la
+ronda 6, sobre el mismo PR, el equipo agregó D23: nada fuera de Docker, tampoco con el
+docente (él lo confirmó), lo que cierra P20 y R4. **Sigue sin haber código de la
+aplicación**: el equipo pidió cerrar las decisiones antes de desarrollar.
 
 Leer en este orden:
 
-1. [`README.md`](README.md): estado, log de decisiones D01–D16, riesgos R1–R4,
-   pendientes P01–P21 y supuestos S1–S3.
+1. [`README.md`](README.md): estado, log de decisiones D01–D23, riesgos R1–R4,
+   pendientes que quedan y supuestos S1–S3.
 2. [`requirements/AR-001-…-[Story]-…`](requirements/): historias HU1–HU8 con sus
    criterios de aceptación.
 3. [`spdd/analysis/AR-001-…-[Analysis]-…`](spdd/analysis/): lo que se encontró
-   explorando Open-Meteo y leyendo `servicio_inestable.py`. Todo está verificado con
-   peticiones reales.
+   explorando Open-Meteo y leyendo `servicio_inestable.py`. Las secciones 1–3 están
+   verificadas con peticiones reales; la 4 es una simulación de los reintentos
+   ([`simulacion_reintentos.py`](spdd/analysis/simulacion_reintentos.py)), que hay
+   que validar con el servicio real cuando exista el código.
 4. [`spdd/template/REASONS-canvas.md`](spdd/template/REASONS-canvas.md): la plantilla
    del siguiente paso.
 
@@ -33,10 +39,12 @@ Leer en este orden:
    cada pregunta con sus opciones, se marca una recomendada y se explica qué cambia
    con cada una. Cuando el equipo confirma:
    - se agrega una fila a la tabla «Log de decisiones» del README con el siguiente ID
-     (D17, D18, …), las alternativas descartadas, el porqué, la sección REASONS que
+     (D24, D25, …), las alternativas descartadas, el porqué, la sección REASONS que
      alimenta y la ronda;
    - si cierra un pendiente, se borra de la tabla de pendientes y la decisión dice
      «cierra P0X»;
+   - si modifica una decisión anterior, esa no se borra: se le agrega la nota
+     «Ajustada por DXX» (como D13 y D19);
    - se actualiza el contador de la sección «Estado».
 3. **Primero el canvas, después el código.** Si cambia el comportamiento, se corrige
    el canvas y luego se regenera el código. Si es un refactor sin cambio de
@@ -55,36 +63,40 @@ Leer en este orden:
    hace push directo a `main`. Prefijos de rama: `docs/`, `feat/`, `fix/`.
 9. **Todo lo que se ejecute del prototipo corre en contenedores** (D16): el agregador,
    el servicio inestable, las pruebas y la medición de latencia. Las instrucciones de
-   arranque son con Docker; las de `venv` solo existen como plan B si se aprueba P20.
+   arranque son solo con Docker: no hay plan B con `venv`, tampoco con el docente (D23).
    El servicio inestable va siempre con `--host 0.0.0.0` dentro de un contenedor
    (hallazgo C1 del análisis).
 
 ## Próximos pasos, en orden
 
-1. **Revisar el PR de `docs/requerimientos-iniciales`**: confirmar D07 (quedó como
-   propuesta sin objeciones) y los supuestos S1–S3.
-2. **Cerrar los pendientes P01–P21 con el equipo**, en rondas cortas de preguntas.
-   Los primeros que conviene cerrar son P08, P09 y P12, porque dan forma a la
-   resiliencia, que vale 30 puntos. Después, P20 (plan B sin Docker), porque depende
-   de confirmar con el docente si tiene Docker (riesgo R4).
-3. Revisar el análisis en equipo y cambiar su estado a «revisado».
-4. Escribir el canvas en
+1. **Cerrar los pendientes que quedan con el equipo**, en rondas cortas de preguntas.
+   Conviene seguir con P06–P07 (qué es una alerta y la semántica de
+   `Idempotency-Key`), porque la idempotencia vale 10 puntos, y con P16–P19 y P21,
+   que definen cómo se arma Docker, ahora que es la única forma de correr todo (D23).
+2. Revisar el análisis en equipo y cambiar su estado a «revisado».
+3. Escribir el canvas en
    `spdd/prompt/AR-001-AAAAMMDDhhmm-[Feat]-agregador-backend.md` a partir de la
    plantilla. Cada afirmación debe citar las D y P de las que depende.
-5. Revisar el canvas en equipo.
-6. Solo entonces generar código, tarea por tarea según la sección Operations: primero
-   el backend (D09) y después el dashboard.
+4. Revisar el canvas en equipo.
+5. Solo entonces generar código, tarea por tarea según la sección Operations: primero
+   el backend (D09) y después el dashboard. Con el backend listo, medir
+   `GET /v1/sensores` contra el servicio real y comparar con la simulación (sección 4
+   del análisis); si no coincide, se corrige primero el canvas.
 
-## Cómo seguir sobre el mismo PR
+## Cómo seguir
 
-Para que la colaboración se vea en el repo, lo ideal es continuar sobre la misma rama
-y que los commits de cada integrante queden en el mismo PR:
+El PR #1 (`docs/requerimientos-iniciales`) ya se fusionó en `main`. Cada ronda o
+cosa terminada va en su propia rama, creada desde `main`, y en su propio PR (regla 8).
+Para que la colaboración se vea en el repo, los demás integrantes pueden revisar y
+comentar el PR abierto, o sumarle commits a su rama mientras no se fusione:
 
 ```bash
 gh repo clone javierchacon262/agregador-resiliente
 cd agregador-resiliente
-gh pr checkout docs/requerimientos-iniciales
+git switch main && git pull
+git switch -c docs/lo-que-sigue
 # … trabajar, y luego:
-git add -A && git commit -m "docs(decisiones): cierra P08, P09 y P12"
-git push
+git add -A && git commit -m "docs(decisiones): cierra P06 y P07"
+git push -u origin docs/lo-que-sigue
+gh pr create
 ```

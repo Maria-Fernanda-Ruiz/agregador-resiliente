@@ -5,13 +5,14 @@
 | ID | AR-001 |
 | Tipo | Análisis (paso 3 de SPDD) |
 | Estado | Exploración hecha; **falta la revisión del equipo** antes de pasar al canvas |
-| Fecha | 2026-10-17 |
+| Fecha | 2026-10-17; sección 4 agregada el 2026-10-23 (ronda 5) |
 | Historia | [AR-001 Story](../../requirements/AR-001-202610171311-[Story]-agregador-resiliente.md) |
 
-Todo lo de este documento sale de peticiones reales con `curl` (17 de octubre de
-2026), de leer `servicio_inestable.py` y, para la sección 3, de correrlo en un
-contenedor. Nada está supuesto. Los hallazgos S1–S8 salen de leer el código; los
-C1–C4, de ejecutarlo.
+Las secciones 1 a 3 salen de peticiones reales con `curl` (17 de octubre de 2026), de
+leer `servicio_inestable.py` y, para la sección 3, de correrlo en un contenedor. Nada
+está supuesto. Los hallazgos S1–S8 salen de leer el código; los C1–C4, de ejecutarlo.
+La sección 4 es distinta: es una **simulación** (hallazgos M1–M6), y lo que dice hay
+que validarlo con el servicio real cuando exista el código.
 
 ## Palabras clave del dominio
 
@@ -112,20 +113,95 @@ defecto y otra con `--host 0.0.0.0`.
 | C3 | Las peticiones que llegan a través de Docker aparecen con **una sola IP** (`172.17.0.1`, el gateway de Docker) | El bloqueo por IP tras un 429 sigue aplicando igual: la compuerta de D14 es necesaria también con Docker. |
 | C4 | `docker stop` tarda 0,5 s y sale con código 0: uvicorn maneja SIGTERM aunque sea el PID 1 | No se repite el problema del taller de Docker, donde `http.server` ignoraba SIGTERM y Docker lo mataba a los 10 s. Hay que comprobarlo también con el agregador. |
 
-## 4. Casos borde que van al canvas (Safeguards)
+## 4. Simulación de los reintentos (ronda 5)
+
+Esta sección **no** sale de peticiones reales: es un modelo. Se hizo el 2026-10-23
+para decidir P08 con números, porque el máximo de intentos y el plazo cambian mucho
+qué tan completa sale `GET /v1/sensores`. El script es
+[`simulacion_reintentos.py`](simulacion_reintentos.py) y corre en un contenedor (D16):
+
+```bash
+docker run --rm -v "$PWD":/app:ro -w /app python:3.12-slim \
+  python spdd/analysis/simulacion_reintentos.py
+```
+
+*Qué modela:* el sorteo del servicio (S4), el bloqueo por IP tras un 429 (S1), las
+respuestas lentas que duermen antes de responder (S3) y, de nuestro lado, el diseño de
+D12 a D14: páginas en serie, 4 lecturas a la vez, compuerta compartida, jitter
+completo, timeout por intento y plazo por petición. *Qué no modela:* la red (supone
+20 ms por respuesta normal) ni Open-Meteo. Cada fila son 4000 peticiones con semilla
+fija, contra dos configuraciones del servicio:
+
+- **defecto:** 429 10 %, 503 30 %, lenta 20 % con 4 s;
+- **enunciado:** `--tasa-fallos 0.4 --latencia 5` (el ejemplo del enunciado).
+
+«Completa» son los 23 sensores con lectura; «Lista completa», las 5 páginas; «Sin
+datos», ni un sensor con lectura, que es el caso que responde 502/504 (D21).
+«Intentos» es el promedio de peticiones que recibe el servicio por cada
+`GET /v1/sensores`.
+
+**Tabla 1 · P08: intentos por llamada** (timeouts 3 → 6 → 8 s, sin plazo)
+
+| Intentos | Servicio | Completa | Lista completa | Sin datos | Mediana | p95 | Máx. | Intentos |
+|---|---|---|---|---|---|---|---|---|
+| 3 | defecto | 8,9 % | 64,2 % | 8,4 % | 16 s | 28 s | 48 s | 39 |
+| 3 | enunciado | 0,9 % | 44,0 % | 15,7 % | 16 s | 30 s | 50 s | 35 |
+| 4 | defecto | 39,0 % | 84,6 % | 3,4 % | 19 s | 31 s | 54 s | 46 |
+| 4 | enunciado | 11,8 % | 69,0 % | 7,6 % | 21 s | 35 s | 48 s | 47 |
+| 5 | defecto | 68,1 % | 93,8 % | 1,0 % | 21 s | 34 s | 51 s | 50 |
+| 5 | enunciado | 34,4 % | 80,8 % | 4,3 % | 25 s | 39 s | 58 s | 53 |
+| 6 | defecto | 85,0 % | 97,5 % | 0,5 % | 22 s | 36 s | 54 s | 51 |
+| 6 | enunciado | 58,8 % | 91,2 % | 1,7 % | 27 s | 43 s | 63 s | 58 |
+
+**Tabla 2 · P08: plazo por petición** (6 intentos, timeouts 3 → 6 → 8 s)
+
+| Plazo | Servicio | Completa | Lista completa | Sin datos | Mediana | p95 | Máx. | Intentos |
+|---|---|---|---|---|---|---|---|---|
+| sin plazo | defecto | 85,0 % | 97,5 % | 0,5 % | 22 s | 36 s | 54 s | 51 |
+| sin plazo | enunciado | 58,8 % | 91,2 % | 1,7 % | 27 s | 43 s | 63 s | 58 |
+| 30 s | defecto | 73,4 % | 97,7 % | 0,5 % | 22 s | 30 s | 30 s | 50 |
+| 30 s | enunciado | 39,4 % | 90,2 % | 2,2 % | 27 s | 30 s | 30 s | 54 |
+| 45 s | defecto | 84,8 % | 97,4 % | 0,5 % | 22 s | 35 s | 45 s | 51 |
+| 45 s | enunciado | 58,1 % | 90,9 % | 1,9 % | 27 s | 43 s | 45 s | 57 |
+
+**Tabla 3 · D13: timeouts por intento** (6 intentos, plazo 45 s)
+
+| Timeouts | Servicio | Completa | Lista completa | Sin datos | Mediana | p95 | Máx. | Intentos |
+|---|---|---|---|---|---|---|---|---|
+| 3 → 5 → 8 s | defecto | 84,8 % | 97,4 % | 0,5 % | 22 s | 35 s | 45 s | 51 |
+| 3 → 5 → 8 s | enunciado | 48,4 % | 90,0 % | 1,7 % | 30 s | 45 s | 45 s | 60 |
+| 3 → 6 → 8 s | defecto | 84,8 % | 97,4 % | 0,5 % | 22 s | 35 s | 45 s | 51 |
+| 3 → 6 → 8 s | enunciado | 58,1 % | 90,9 % | 1,9 % | 27 s | 43 s | 45 s | 57 |
+| 6 → 8 → 8 s | defecto | 89,2 % | 98,0 % | 0,3 % | 21 s | 32 s | 45 s | 46 |
+| 6 → 8 → 8 s | enunciado | 64,1 % | 92,6 % | 1,5 % | 27 s | 41 s | 45 s | 53 |
+
+### Lo que encontramos (y cómo afecta el diseño)
+
+| # | Hallazgo | Consecuencia para nosotros |
+|---|---|---|
+| M1 | Con 3 intentos solo sale completa el 8,9 % (defecto) o el 0,9 % (enunciado) de las respuestas. Una respuesta completa necesita 28 llamadas, y basta con que una se quede sin intentos | 6 intentos por llamada al servicio inestable (D17) |
+| M2 | Las páginas son el eslabón débil: van en serie y, si una se pierde, se pierden las siguientes, porque su cursor no llega | La lista completa pasa del 64 % con 3 intentos al 97,5 % con 6 |
+| M3 | Un plazo de 45 s casi no cambia la completitud frente a no tener plazo y acota el peor caso. Con 30 s, en el enunciado, las completas bajan del 58 % al 39 % | Plazo de 45 s por petición en `/v1/sensores` (D18) |
+| M4 | Con `--latencia 5`, el timeout de 5 s del segundo intento también corta las respuestas lentas, aunque D13 decía que las toleraba: 48 % de completas con 3 → 5 → 8 s, frente a 58 % con 3 → 6 → 8 s | El segundo timeout pasa a 6 s (D19) |
+| M5 | Sin el corte rápido (6 → 8 → 8 s) se completa algo más, pero con latencias de 4 o 5 s no habría ni un timeout y la evidencia nunca mostraría que los manejamos | El primer intento sigue en 3 s (D19) |
+| M6 | Aun con 6 intentos y 45 s, con el enunciado 4 de cada 10 respuestas salen incompletas y la mediana es de 27 s | El dashboard debe mostrar `completo: false` y no puede esperar que sensores responda rápido |
+
+## 5. Casos borde que van al canvas (Safeguards)
 
 1. Nunca reintentar 400 ni 404, ni siquiera los 400 de Open-Meteo.
 2. Nunca llamar al servicio inestable antes de que venza un Retry-After recibido.
-3. Nunca devolver un 500 genérico: errores de las dependencias → 502 o 504.
+3. Nunca devolver un 500 genérico: errores de las dependencias → 502 o 504 (D20).
 4. Validar los parámetros propios (422) antes de gastar una llamada externa.
 5. Toda llamada saliente lleva un timeout explícito.
 6. Un recorrido de paginación termina siempre (cursor `null` o error), sin bucles.
 7. Todo lo que se ejecute corre en contenedores (D16), y el agregador termina limpio
    con `docker stop` (C4).
+8. Ninguna petición propia pasa de su plazo: ni un intento ni una espera se extienden
+   más allá de la fecha límite (D18).
 
-## 5. Preguntas abiertas que salieron del análisis
+## 6. Preguntas abiertas que salieron del análisis
 
-Están en la tabla de [decisiones pendientes](../../README.md#decisiones-pendientes)
-del README: P02 (TTL), P08 (intentos y plazo total), P09 (parcial sin datos),
-P10 (búsqueda vacía), P11 (reintentos hacia Open-Meteo), P12 (502 vs 504) y
-P16–P21 (cómo se arma Docker).
+En la ronda 5 se cerraron P08 (D17 y D18), P09 (D21), P11 (D22) y P12 (D20), y en
+la 6, P20 (D23). Siguen en la tabla de
+[decisiones pendientes](../../README.md#decisiones-pendientes) del README: P02 (TTL),
+P10 (búsqueda vacía), y P16–P19 y P21 (cómo se arma Docker).
