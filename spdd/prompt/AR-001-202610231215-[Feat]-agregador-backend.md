@@ -60,8 +60,8 @@ Modelos Pydantic de la API propia (`agregador/modelos.py`):
 | `RespuestaSensores` | `sensores: list[SensorConLectura]`, `completo: bool`, `motivo: str \| None` |
 | `NuevaAlerta` | `objetivo: {tipo: "ciudad" \| "sensor", id}`, `variable`, `condicion: "mayor_que" \| "menor_que"`, `umbral: float` |
 | `Alerta` | `NuevaAlerta` + `id` + `creada` (UTC) |
-| `ErrorDependencia` | `detalle`, `dependencia: "open_meteo" \| "servicio_inestable"`, `causa`, `intentos` (cuerpo de 502/504, D20) |
-| `Metricas` | la forma de D35 |
+| `CuerpoErrorDependencia` | `detalle`, `dependencia: "open_meteo" \| "servicio_inestable"`, `causa`, `intentos` (cuerpo de 502/504, D20) |
+| `Metricas` | `desde`; por dependencia: `llamadas`, `intentos`, `reintentos`, `por_resultado`, `respuestas_502`, `respuestas_504` y, en el servicio inestable, `compuerta_cerrada_hasta`; `cache` (`aciertos`, `fallos`); `latencia_ms` por plantilla de ruta (`peticiones`, `mediana`, `p95`) (D35) |
 
 Modelos de las respuestas externas, para validar lo que llega (HU2: datos inválidos →
 502, no datos a medias):
@@ -105,9 +105,9 @@ agregador/
   main.py             app de FastAPI, lifespan, middleware de evidencia, /salud y manejadores de error
   config.py           configuración desde variables de entorno (ver Norms)
   modelos.py          modelos Pydantic (Entities)
-  resiliencia.py      D12: es_reintentable … llamar_con_reintentos, CompuertaRetryAfter, ErrorDependencia
+  resiliencia.py      D12: es_reintentable … llamar_con_reintentos, Politica, CompuertaRetryAfter, ErrorDependencia
   evidencia.py        D37: id de petición y formato de las líneas del log
-  metricas.py         D35: contadores
+  metricas.py         D35: RegistroMetricas, los contadores
   cache.py            D32, D33: CacheTTL y Cache-Status
   idempotencia.py     D25
   clientes/
@@ -119,7 +119,7 @@ pruebas/
   test_resiliencia.py   unitarias, con httpx.MockTransport
   test_api_*.py         contra el stack levantado (D26)
   medir_latencia.py     D34
-Dockerfile  docker-compose.yml  requirements.txt  .dockerignore
+Dockerfile  docker-compose.yml  requirements.txt  .dockerignore  pytest.ini
 ```
 
 ```mermaid
@@ -238,3 +238,11 @@ aprueban al revisar el canvas:
    `daily`, con `timezone=auto`.
 9. Id de petición en el log: `r-` y 4 caracteres hexadecimales al azar.
 10. Las latencias de `GET /v1/metricas` usan las últimas 100 peticiones por ruta.
+
+## Cambios
+
+Lo que se cambió en este canvas después de revisarlo, y por qué (regla 3 de AGENTS.md).
+
+| Fecha | Tareas | Cambio | Por qué |
+|---|---|---|---|
+| 2026-10-23 | 1–6 | El cuerpo de los 502/504 se llama `CuerpoErrorDependencia`; la clase de los contadores, `RegistroMetricas`; `resiliencia.py` agrega `Politica`; se fija la forma de `Metricas`, y se suma `pytest.ini` | Nombres al implementar, sin cambio de comportamiento: `ErrorDependencia` ya era la excepción y `Metricas` el modelo de la respuesta |

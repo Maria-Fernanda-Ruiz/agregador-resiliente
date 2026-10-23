@@ -1,0 +1,71 @@
+# Todo corre aquí (D16, D23). Una sola imagen para los tres servicios (D28).
+#
+#   docker compose up -d --wait                         # agregador + servicio inestable
+#   TASA_FALLOS=0.4 LATENCIA=5 docker compose up -d --wait
+#   docker compose run --rm pruebas                     # la colección de pruebas (D26)
+#   docker compose logs -f                              # la evidencia de los reintentos (D37)
+#
+# Para apuntar a la instancia del docente en otro contenedor de su máquina (D30, caso B):
+#   SERVICIO_INESTABLE_URL=http://host.docker.internal:9000 docker compose up -d --wait
+
+name: agregador-resiliente
+
+x-imagen: &imagen
+  build: .
+  image: agregador-resiliente:local
+
+# Healthcheck con Python: la imagen slim no trae curl (D31, C7).
+x-salud: &salud
+  interval: 5s
+  timeout: 3s
+  retries: 3
+  start_period: 15s
+
+services:
+  agregador:
+    <<: *imagen
+    ports:
+      - "8000:8000"
+    environment:
+      SERVICIO_INESTABLE_URL: ${SERVICIO_INESTABLE_URL:-http://servicio-inestable:9000}
+    # Para que host.docker.internal resuelva también en Linux (C6).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # No espera al servicio inestable: si no está, reintenta y responde 502/504 (D31).
+    healthcheck:
+      <<: *salud
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/salud', timeout=2)"]
+
+  servicio-inestable:
+    <<: *imagen
+    # servicio_inestable.py sin modificar (S3); --host 0.0.0.0 para que se alcance
+    # desde fuera de su contenedor (C1). Los parámetros llegan por variables (C5).
+    command:
+      - sh
+      - -c
+      - >-
+        exec python servicio_inestable.py --host 0.0.0.0
+        --tasa-fallos ${TASA_FALLOS:-0.30}
+        --tasa-429 ${TASA_429:-0.10}
+        --tasa-lentitud ${TASA_LENTITUD:-0.20}
+        --latencia ${LATENCIA:-4.0}
+        --retry-after ${RETRY_AFTER:-2}
+        --tam-pagina ${TAM_PAGINA:-5}
+        ${SEMILLA:+--semilla $SEMILLA}
+    ports:
+      - "9000:9000"
+    healthcheck:
+      <<: *salud
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/salud', timeout=2)"]
+
+  pruebas:
+    <<: *imagen
+    profiles: ["pruebas"]
+    command: ["pytest", "-v"]
+    environment:
+      AGREGADOR_URL: http://agregador:8000
+    depends_on:
+      agregador:
+        condition: service_healthy
+      servicio-inestable:
+        condition: service_healthy
