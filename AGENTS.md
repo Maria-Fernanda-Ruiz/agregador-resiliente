@@ -20,13 +20,19 @@ El mismo día se hizo la ronda 7, en la rama `docs/idempotencia-y-docker`, cread
 desde la de la ronda 5 porque su PR seguía abierto. D24–D25 definen la alerta y la
 idempotencia; D26 elige pytest + httpx para la colección de pruebas (P22, un pendiente
 que salió en la ronda); D27 descarta la CI (riesgo R5, aceptado), y D28–D31 definen
-cómo se arma Docker, verificado con Compose (hallazgos C5–C7). **Sigue sin haber
-código de la aplicación**: el equipo pidió cerrar las decisiones antes de desarrollar.
+cómo se arma Docker, verificado con Compose (hallazgos C5–C7).
+
+También ese día, la ronda 8 cerró los nueve pendientes que quedaban, en la rama
+`docs/cierra-pendientes-finales`, apilada sobre la de la ronda 7. D32–D35 definen la
+caché, la medición de latencia y las métricas; D36, la búsqueda vacía; D37, el formato
+del log de evidencias; D38, seguir con las plantillas propias; D39, hacer la Parte E
+antes del dashboard, y D40, los roles. **No quedan pendientes**, pero **sigue sin
+haber código de la aplicación**: lo siguiente es el canvas.
 
 Leer en este orden:
 
-1. [`README.md`](README.md): estado, log de decisiones D01–D31, riesgos R1–R5,
-   pendientes que quedan y supuestos S1–S3.
+1. [`README.md`](README.md): estado, integrantes y roles, log de decisiones D01–D40,
+   riesgos R1–R5 y supuestos S1–S3. La tabla de pendientes está vacía.
 2. [`requirements/AR-001-…-[Story]-…`](requirements/): historias HU1–HU8 con sus
    criterios de aceptación.
 3. [`spdd/analysis/AR-001-…-[Analysis]-…`](spdd/analysis/): lo que se encontró
@@ -45,13 +51,17 @@ Leer en este orden:
    cada pregunta con sus opciones, se marca una recomendada y se explica qué cambia
    con cada una. Cuando el equipo confirma:
    - se agrega una fila a la tabla «Log de decisiones» del README con el siguiente ID
-     (D32, D33, …), las alternativas descartadas, el porqué, la sección REASONS que
+     (D41, D42, …), las alternativas descartadas, el porqué, la sección REASONS que
      alimenta y la ronda;
    - si cierra un pendiente, se borra de la tabla de pendientes y la decisión dice
      «cierra P0X»;
    - si modifica una decisión anterior, esa no se borra: se le agrega la nota
      «Ajustada por DXX» (como D13 y D19);
    - se actualiza el contador de la sección «Estado».
+
+   Si al escribir el canvas o el código aparece una pregunta nueva, se agrega a la
+   tabla de pendientes como P23, P24, …, y no se genera código para esa parte hasta
+   cerrarla.
 3. **Primero el canvas, después el código.** Si cambia el comportamiento, se corrige
    el canvas y luego se regenera el código. Si es un refactor sin cambio de
    comportamiento, se cambia el código y luego se sincroniza el canvas. Las secciones
@@ -75,18 +85,18 @@ Leer en este orden:
 
 ## Próximos pasos, en orden
 
-1. **Cerrar los pendientes que quedan con el equipo**, en rondas cortas de preguntas.
-   Quedan nueve. Conviene seguir con P13 (formato del log de evidencias), porque esos
-   logs son la prueba de los reintentos, que valen 30 puntos; con P02–P05 (caché,
-   medición de latencia y métricas), que valen 10, y con P01 (integrantes y roles),
-   que va en el README de la entrega.
+1. **Fusionar los PR de las decisiones en orden**: #2 (rondas 5 y 6), #3 (ronda 7) y
+   el de la ronda 8. Cuando se fusiona uno, se cambia a `main` la base del siguiente.
+   Maria Fernanda completa o corrige su fila de integrantes si hace falta.
 2. Revisar el análisis en equipo y cambiar su estado a «revisado».
 3. Escribir el canvas en
    `spdd/prompt/AR-001-AAAAMMDDhhmm-[Feat]-agregador-backend.md` a partir de la
-   plantilla. Cada afirmación debe citar las D y P de las que depende.
+   plantilla (D38). Cada afirmación debe citar las D de las que depende, y lo que
+   pide exactamente la Parte E se detalla ahí (D39).
 4. Revisar el canvas en equipo.
 5. Solo entonces generar código, tarea por tarea según la sección Operations: primero
-   el backend (D09) y después el dashboard. Con el backend listo, medir
+   el backend (D09), después la Parte E y al final el dashboard (D39). Cada integrante
+   se ocupa de las piezas de su rol (D40). Con el backend listo, medir
    `GET /v1/sensores` contra el servicio real y comparar con la simulación (sección 4
    del análisis); si no coincide, se corrige primero el canvas.
 
@@ -104,9 +114,9 @@ a su rama mientras no se fusione:
 gh repo clone javierchacon262/agregador-resiliente
 cd agregador-resiliente
 git switch main && git pull
-git switch -c docs/lo-que-sigue
+git switch -c docs/canvas-backend
 # … trabajar, y luego:
-git add -A && git commit -m "docs(decisiones): cierra P13"
-git push -u origin docs/lo-que-sigue
+git add -A && git commit -m "docs(spdd): canvas REASONS del backend"
+git push -u origin docs/canvas-backend
 gh pr create
 ```
