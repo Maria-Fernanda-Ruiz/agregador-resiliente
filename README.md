@@ -375,15 +375,18 @@ cerrarla.
 ## Cómo correr lo que ya existe
 
 Todo con Docker Compose ([D28](#log-de-decisiones)); no hay instrucciones sin Docker
-([D23](#log-de-decisiones)). Por ahora el agregador tiene `/salud`, `/v1/metricas` y
-los reintentos; las rutas de sensores, ciudades y alertas llegan con sus tareas del
-canvas.
+([D23](#log-de-decisiones)). El agregador ya tiene `/salud`, `/v1/metricas`, los
+reintentos, las rutas de ciudades y clima y las de alertas; la de sensores llega con su
+tarea del canvas. El contrato completo está en <http://localhost:8000/docs>.
 
 ```bash
 docker compose up -d --wait            # agregador (:8000) y servicio inestable (:9000)
 curl localhost:8000/salud
+curl 'localhost:8000/v1/ciudades?nombre=San%20Jos%C3%A9&pais=CO'
+curl -i 'localhost:8000/v1/ciudades/3688465/clima?dias=3'     # mirar Cache-Status
 curl localhost:8000/v1/metricas
-docker compose run --rm pruebas        # pruebas (D26)
+docker compose run --rm pruebas        # la colección de pruebas (D26)
+docker compose run --rm pruebas python pruebas/medir_latencia.py   # tabla de latencias (D34)
 docker compose logs -f                 # evidencia de los reintentos (D37)
 docker compose down
 ```
@@ -407,13 +410,279 @@ SERVICIO_INESTABLE_URL=http://host.docker.internal:9000 docker compose up -d --w
 defecto en `127.0.0.1`, que dentro del contenedor solo responde desde adentro; el
 Compose ya lo arranca así (hallazgo C1 del [análisis](spdd/analysis/)).
 
+## Pruebas
+
+`docker compose run --rm pruebas` corre todo con pytest dentro de la imagen (D26), en
+dos grupos:
+
+| Archivo | Qué prueba | Necesita |
+|---|---|---|
+| `test_resiliencia.py` | Las funciones de «D12 en detalle», con un servidor y un reloj falsos | Nada |
+| `test_cache.py` | Vencimiento del TTL, `no-cache` y los cuatro valores de `Cache-Status` (D32, D33) | Nada |
+| `test_idempotencia.py` | Las cuatro reglas de D25, incluido el 409 con la primera en curso, y el vencimiento a las 24 h | Nada |
+| `test_open_meteo.py` | El cliente: candidatos, `results` ausente (E1), id inexistente sin reintento (E6), listas paralelas (E7), 3 intentos y 502/504 (D20, D22) | Nada |
+| `test_rutas.py` | Códigos de estado y cabeceras de ciudades y alertas, con un Open-Meteo falso que cuenta las llamadas: los 422 no gastan ninguna | Nada |
+| `test_api_ciudades.py` · `test_api_alertas.py` | La colección: contra el stack levantado y Open-Meteo real | El stack |
+
+Para correr solo las que no necesitan el stack:
+`docker compose run --rm --no-deps -e AGREGADOR_URL= pruebas`. El último reporte está en
+[`pruebas/reporte-pruebas.md`](pruebas/reporte-pruebas.md).
+
+## Latencia con caché y sin ella
+
+`GET /v1/ciudades/3688465/clima?dias=7` (Bucaramanga), 20 peticiones en frío con
+`Cache-Control: no-cache` y 20 en caliente, de a una, medidas desde el contenedor de
+pruebas ([D34](#log-de-decisiones)). Se reproduce con
+`docker compose run --rm pruebas python pruebas/medir_latencia.py`.
+
+| Condición | Peticiones | Mediana (ms) | p95 (ms) | Máximo (ms) |
+|---|---|---|---|---|
+| Sin caché (`no-cache`) | 20 | 430,5 | 645,3 | 1 737,9 |
+| Con caché (`hit`) | 20 | 1,0 | 2,0 | 2,5 |
+
+Medido el 2026-10-23 a las 18:15 UTC. Con caché, la mediana es unas 450 veces menor:
+la respuesta sale de la memoria del agregador en vez de hacer dos llamadas encadenadas
+a Open-Meteo. Con 20 muestras, el p95 es la segunda peor de cada tanda.
+
+Cada respuesta dice de dónde salió con `Cache-Status` (RFC 9211, [D33](#log-de-decisiones)),
+con una entrada por caché:
+
+```text
+agregador-ciudades; fwd=uri-miss; stored, agregador-pronostico; fwd=uri-miss; stored   # primera vez
+agregador-ciudades; hit; ttl=86400, agregador-pronostico; hit; ttl=900                  # segunda
+agregador-ciudades; fwd=request; stored, agregador-pronostico; fwd=request; stored     # con no-cache
+```
+
+## Demostración de idempotencia
+
+Dos peticiones iguales con la misma `Idempotency-Key` crean **una** alerta y devuelven
+**la misma** respuesta ([D25](#log-de-decisiones)). Salida real, recortada a las
+cabeceras que importan:
+
+```console
+$ curl -i -X POST localhost:8000/v1/alertas -H 'Content-Type: application/json' \
+    -H 'Idempotency-Key: 7c1e4b2a' \
+    -d '{"objetivo": {"tipo": "ciudad", "id": 3688465}, "variable": "temperatura", "condicion": "mayor_que", "umbral": 30}'
+HTTP/1.1 201 Created
+location: /v1/alertas/a-0001
+
+{"objetivo":{"tipo":"ciudad","id":"3688465"},"variable":"temperatura","condicion":"mayor_que","umbral":30.0,"id":"a-0001","creada":"2026-10-23T18:16:25.624143Z"}
+
+$ # la misma petición otra vez, como un cliente que perdió la respuesta
+HTTP/1.1 201 Created
+location: /v1/alertas/a-0001
+
+{"objetivo":{"tipo":"ciudad","id":"3688465"},"variable":"temperatura","condicion":"mayor_que","umbral":30.0,"id":"a-0001","creada":"2026-10-23T18:16:25.624143Z"}
+
+$ curl localhost:8000/v1/alertas          # una sola alerta
+[{"objetivo":{"tipo":"ciudad","id":"3688465"}, … ,"id":"a-0001", … }]
+
+$ # la misma clave con otro umbral → 422; sin clave → 400
+{"detail":"Esta Idempotency-Key ya se usó con otro cuerpo"}
+{"detail":"Falta la cabecera Idempotency-Key"}
+```
+
+Lo mismo, como prueba automática: `test_dos_peticiones_con_la_misma_clave_crean_una_sola_alerta`
+en [`pruebas/test_api_alertas.py`](pruebas/test_api_alertas.py). El 409 (la misma clave
+mientras la primera sigue en curso) no se puede provocar desde afuera, porque crear una
+alerta no espera nada; lo demuestra `test_misma_clave_con_la_primera_en_curso_es_409` en
+[`pruebas/test_idempotencia.py`](pruebas/test_idempotencia.py).
+
+## Evidencias de los reintentos
+
+`docker compose logs agregador` deja una línea por intento y una final por petición
+([D37](#log-de-decisiones)). Las de sensores, contrastadas con el log del servicio
+inestable, llegan con la tarea 7 del canvas. Estas son de Open-Meteo, con un agregador
+apuntado a un puerto cerrado para provocar la falla: 3 intentos (D22), espera con jitter
+entre ellos y 502 al rendirse (D20).
+
+```text
+[18:15:25.848] r-5f0f open-meteo 1/3 GET /v1/search?name=Bogota&count=10&language=es -> conexión fallida (ConnectError) · espera 0,24 s
+[18:15:26.096] r-5f0f open-meteo 2/3 GET /v1/search?name=Bogota&count=10&language=es -> conexión fallida (ConnectError) · espera 0,95 s
+[18:15:27.050] r-5f0f open-meteo 3/3 GET /v1/search?name=Bogota&count=10&language=es -> conexión fallida (ConnectError) · intentos agotados
+[18:15:27.051] r-5f0f GET /v1/ciudades -> 502 (1,24 s, 3 intentos)
+```
+
+Y un id inexistente, que **no** se reintenta (salvaguarda 1, E6):
+
+```text
+[18:09:19.197] r-c0bf open-meteo 1/3 GET /v1/get?id=999999999&language=es -> 400 (205 ms)
+[18:09:19.198] r-c0bf GET /v1/ciudades/999999999/clima -> 404 (0,21 s, 1 intentos)
+```
+
+## Preguntas de análisis (Parte D)
+
+### a) ¿Por qué es peligroso reintentar un `POST` sin clave de idempotencia?
+
+**Porque se puede crear dos veces lo mismo sin que nadie se dé cuenta.**
+
+Una operación es **idempotente** cuando hacerla una vez o varias deja el mismo
+resultado. Un `GET` lo es: pedir dos veces el clima no cambia nada. Un `POST` no lo es:
+cada vez que se ejecuta puede crear algo nuevo (así lo define el estándar HTTP,
+RFC 9110).
+
+El problema es que, cuando una petición se demora demasiado, el cliente no sabe qué
+pasó. Puede que no haya llegado, o puede que haya llegado y lo que se perdió fue la
+respuesta.
+
+**Ejemplo en nuestro proyecto:** el dashboard manda `POST /v1/alertas` para crear la
+alerta «temperatura mayor que 30 °C en Bucaramanga», y la respuesta no llega a tiempo.
+
+- Si reintenta y la alerta sí se había creado, quedan **dos alertas iguales**.
+- Si no reintenta y no se había creado, la alerta **se pierde**.
+
+Con una alerta, el daño es un aviso repetido. Con un pago o un pedido, sería cobrar o
+enviar dos veces.
+
+Por eso lo diseñamos así:
+
+- Nuestros reintentos automáticos solo se aplican a peticiones `GET`, que no tienen
+  efectos secundarios (D12).
+- `POST /v1/alertas` exige la cabecera `Idempotency-Key` (D25). El cliente manda una
+  clave única, por ejemplo `7c1e4b2a`, y si reintenta usa la misma. Así el reintento se
+  vuelve una pregunta segura: «¿qué pasó con la operación 7c1e4b2a?». El servidor ve
+  que esa clave ya se usó y devuelve la misma respuesta, la misma alerta `a-0001`, sin
+  crear otra.
+
+### b) ¿Qué pasaría si 50 clientes reintentaran al mismo tiempo sin jitter?
+
+**Volverían todos al mismo instante y volverían a tumbar al servicio, una y otra vez.**
+
+Dos términos:
+
+- **Backoff exponencial:** después de cada fallo se espera más tiempo antes de
+  reintentar. En nuestro código el techo de espera es 0,5 s, luego 1 s, 2 s, 4 s y como
+  máximo 8 s.
+- **Jitter:** en vez de esperar siempre ese techo exacto, cada cliente espera un tiempo
+  **al azar** entre 0 y el techo. Por ejemplo, en el tercer intento, cualquier valor
+  entre 0 y 2 s.
+
+Sin jitter, si una caída hace fallar a los 50 clientes a la vez, todos esperan
+exactamente lo mismo y llegan juntos: 50 peticiones a los 0,5 s, otras 50 al segundo,
+otras 50 a los 2 s… Es lo que se llama **estampida** (*thundering herd*): muchos
+clientes que llegan de golpe al mismo tiempo. Cada oleada encuentra al servicio igual
+de cargado que la anterior, falla otra vez y prepara la siguiente. El backoff separa más
+las oleadas, pero no las deshace.
+
+**Ejemplo en nuestro proyecto:** con el servicio inestable sería todavía peor, porque
+cuando se satura responde **429** («demasiadas peticiones») y **bloquea la IP** durante
+el tiempo que dice la cabecera `Retry-After`, que por defecto es de 2 s. Si los 50
+vuelven en el mismo segundo, pueden caer otra vez antes de que venza el bloqueo.
+
+Con jitter, las 50 peticiones se reparten a lo largo de la espera en vez de llegar
+juntas, y el servicio alcanza a recuperarse (lo explica Marc Brooker en el blog de AWS).
+
+**Un matiz honesto de nuestro diseño:** cuando llega un `Retry-After`, esperamos el
+mayor entre ese tiempo y el jitter. En los primeros intentos el jitter es menor que 2 s
+(como máximo 0,5 s o 1 s), así que gana el `Retry-After`, y quienes recibieron el mismo
+`Retry-After` vuelven a la vez. Dentro de nuestro agregador eso lo controla la
+**compuerta**, que hace esperar juntas a todas nuestras llamadas al servicio inestable y
+deja salir como máximo 4 lecturas a la vez (D14). Pero si hubiera muchos agregadores
+distintos, convendría sumar un poco de azar encima del `Retry-After`.
+
+### c) ¿Qué tan desactualizados pueden estar los datos de la caché, y cuándo sería inaceptable?
+
+**El pronóstico puede llegar con hasta unos 30 minutos de antigüedad. Eso está bien
+para planear el día, pero sería inaceptable para decisiones urgentes.**
+
+La **caché** es una copia guardada de una respuesta, para no tener que volver a pedirla.
+El **TTL** (*time to live*, tiempo de vida) es cuánto dura esa copia antes de que se
+descarte y se pida de nuevo.
+
+En nuestro proyecto hay dos TTL (D32):
+
+- **Pronóstico: 15 minutos.**
+- **Ficha de la ciudad** (nombre, departamento, coordenadas): **24 horas.** No importa
+  que dure tanto, porque el nombre y las coordenadas de una ciudad no cambian.
+
+¿Por qué hasta 30 minutos? Porque **Open-Meteo** solo renueva el dato actual cada 15
+minutos (E11). Se suman dos esperas:
+
+1. Pedimos el clima de Bucaramanga cuando el dato de Open-Meteo ya tiene casi 15
+   minutos, justo antes de que lo renueve.
+2. Lo guardamos y lo seguimos entregando 15 minutos más, hasta que vence nuestra copia.
+
+En total, casi 30 minutos.
+
+**Ejemplo en nuestro proyecto:** para ver el pronóstico de Bucaramanga o comparar dos
+ciudades en el dashboard, una diferencia de 30 minutos no cambia nada.
+
+**Sería inaceptable** cuando se toman decisiones con el dato del momento:
+
+- una alerta de tormenta o de crecida de un río;
+- operaciones aéreas;
+- evaluar en tiempo real las alertas de `POST /v1/alertas` (hoy solo se guardan y no se
+  evalúan, D24).
+
+En esos casos habría que bajar el TTL, hacer que la copia venza justo cuando Open-Meteo
+renueva el dato, o directamente no usar caché.
+
+Quien necesite el dato fresco ya puede pedirlo: con la cabecera
+`Cache-Control: no-cache`, el agregador va directo a Open-Meteo (D33). Además, cada
+respuesta trae la cabecera `Cache-Status`, que dice si salió de la caché y cuántos
+segundos le quedan a la copia (por ejemplo, `ttl=842`).
+
+### d) ¿Qué cambiaría si el servicio corriera en varias réplicas detrás de un balanceador?
+
+**Habría que sacar de la memoria todo lo que hoy se guarda ahí y compartirlo entre las
+réplicas. Si no, la idempotencia, la caché y la compuerta dejarían de funcionar bien.**
+
+Dos términos:
+
+- **Réplica:** una copia idéntica del agregador corriendo al mismo tiempo que otras,
+  para atender más peticiones o seguir funcionando si una se cae.
+- **Balanceador:** el componente que recibe cada petición y decide a qué réplica
+  mandarla.
+
+Hoy todo vive en la memoria de un solo proceso. Con varias réplicas, cada una tendría
+su propia memoria, y no se enterarían de lo que pasa en las demás:
+
+1. **Idempotencia y alertas (lo primero que se rompe).** El dashboard manda
+   `POST /v1/alertas` con la clave `7c1e4b2a`, y la réplica 1 crea la alerta. El
+   reintento cae en la réplica 2, que no conoce esa clave, y **crea una segunda
+   alerta**: justo lo que la clave debía evitar.
+   - Solución: guardar las claves y las alertas en un almacén compartido, como Redis o
+     una base de datos.
+   - Marcar una clave como «en curso» tendría que ser una sola operación indivisible
+     entre réplicas (en Redis, `SET NX` con vencimiento), para que el 409 siga
+     funcionando.
+   - Los ids secuenciales (`a-0001`, `a-0002`…) se repetirían entre réplicas, así que
+     harían falta ids únicos como los UUID, o una secuencia de la base de datos.
+2. **Caché.** Cada réplica tendría su propia copia del pronóstico. Seguiría
+   funcionando, pero:
+   - habría más fallos de caché, porque hay que «llenar» cada réplica por separado;
+   - habría más llamadas a Open-Meteo desde la misma IP, que en la sala comparten todos
+     los grupos (E13);
+   - dos peticiones seguidas al clima de Bucaramanga podrían traer datos de distinta
+     antigüedad, según la réplica que conteste.
+
+   Solución: una caché compartida, a cambio de un viaje extra por la red.
+3. **Compuerta de Retry-After.** Si todas las réplicas salen a internet por la misma IP,
+   un 429 del servicio inestable bloquea a todas, pero solo se entera la réplica que lo
+   recibió. Las demás seguirían llamando antes de que venzan los 2 s, y el log del
+   servicio las mostraría como «no respetó Retry-After». La compuerta tendría que ser
+   compartida, o cada réplica tendría que estar preparada para recibir un 429 en
+   cualquier momento.
+4. **Reintentos y plazos.** Si el balanceador también reintenta por su cuenta, sus
+   reintentos se multiplican con los nuestros: por ejemplo, 3 del balanceador por 6
+   nuestros hacia el servicio inestable dan hasta 18 intentos por llamada. Habría que
+   reintentar en una sola capa y ajustar los tiempos de espera del balanceador a
+   nuestros plazos de 45 s para sensores y 15 s para Open-Meteo (D18).
+5. **Métricas y evidencias.** `GET /v1/metricas` mostraría solo los números de la
+   réplica que contestó. Habría que juntar métricas y logs en un sistema externo (como
+   Prometheus o un colector de logs). Además, el id de cada petición tendría que
+   asignarlo el balanceador, para poder seguirla aunque pase por varias réplicas.
+
+Lo que **no** cambia: `GET /salud` sirve tal cual para que el balanceador detecte una
+réplica caída y deje de mandarle peticiones.
+
 ## Cómo continuar
 
 Las instrucciones para cualquier persona o agente están en [`AGENTS.md`](AGENTS.md).
-En resumen: las decisiones están cerradas. Lo que sigue es revisar el análisis en
-equipo, escribir el canvas REASONS en `spdd/prompt/` con la plantilla (D38) y, solo
-después de revisarlo en equipo, generar código: primero el backend, después la
-Parte E y al final el dashboard (D09, D39).
+En resumen: el canvas del backend está revisado y el código va tarea por tarea según su
+sección Operations. Ya están la base y los reintentos (tareas 1–6) y la parte de
+Open-Meteo, caché, alertas, colección y latencias (tareas 10–15). Faltan los sensores y
+su colección (tareas 7–9); después siguen la Parte E y al final el dashboard (D09, D39).
 
 ## Fuentes
 

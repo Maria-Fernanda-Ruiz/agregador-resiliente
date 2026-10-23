@@ -39,6 +39,12 @@ código en cuanto se revise. Al escribirlo salió P23: qué pide exactamente la 
 porque el enunciado no estaba en el repo. Después se agregó el enunciado en
 `requirements/enunciado/` y D41 cerró P23.
 
+Con el canvas revisado (PR #6) empezó el código. Javier hizo la base y los reintentos
+(tareas 1–6, PR #8). Maria Fernanda hizo, en la rama `feat/ciudades-alertas-y-pruebas`,
+el cliente de Open-Meteo, la caché, las rutas de ciudades, las alertas con
+idempotencia, la colección de ciudades y alertas, la medición de latencia y las
+secciones de entrega del README (tareas 10–15). Faltan los sensores (tareas 7–9).
+
 Leer en este orden:
 
 0. [`requirements/enunciado/`](requirements/enunciado/enunciado.md): el enunciado del
