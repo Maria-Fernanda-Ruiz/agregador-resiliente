@@ -1,0 +1,8 @@
+*
+!requirements.txt
+!pytest.ini
+!servicio_inestable.py
+!agregador/
+!pruebas/
+**/__pycache__
+**/*.pyc

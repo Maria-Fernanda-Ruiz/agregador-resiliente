@@ -204,14 +204,15 @@ caché, medición, métricas, evidencia, alcance y roles.
 
 ### D12 en detalle: reintentos, función por función
 
-> **Esto es diseño, todavía no hay código.** Cuando se implemente, esta sección se
-> actualiza con lo que el código haga de verdad (regla 2 de SPDD). Los valores de base
-> y tope son propuestas; el máximo de intentos (D17, D22), el plazo (D18) y los
-> timeouts (D19) ya están decididos. Todos serán configurables por variables de
-> entorno.
+> **Las funciones 1–6 describen el código de
+> [`agregador/resiliencia.py`](agregador/resiliencia.py)**, que tiene la misma
+> numeración; sus pruebas están en
+> [`pruebas/test_resiliencia.py`](pruebas/test_resiliencia.py). Las 7 y 8 todavía son
+> diseño (tarea 7 del canvas). Si el código cambia, esta sección cambia con él (regla 4
+> de AGENTS.md). Los números salen de variables de entorno, con los valores por
+> defecto de la tabla de Norms del canvas.
 
-Todo vive en un módulo `resiliencia.py`. Así se ve el comportamiento esperado en un
-caso con 503, 429 y éxito:
+Así se ve el comportamiento en un caso con 503, 429 y éxito:
 
 ```mermaid
 sequenceDiagram
@@ -232,10 +233,11 @@ sequenceDiagram
     S-->>A: 200 con cursor siguiente
 ```
 
-**1. `es_reintentable(respuesta o error)` → sí/no**
+**1. `es_reintentable(resultado)` → sí/no**, donde `resultado` es la respuesta o el error
 - *Qué hace:* decide si vale la pena repetir. **Sí** con 503, 429, timeout y errores
-  de conexión, como una conexión rechazada o cortada (D22). **No** con 400, 404 y
-  cualquier otro 4xx. Un 2xx no es fallo.
+  de conexión: conexión rechazada, cortada o con el protocolo roto (D22). **No** con
+  400, 404, cualquier otro 4xx ni otro 5xx (500, 502, 504), ni con un error de
+  configuración como una URL sin esquema. Un 2xx no es fallo.
 - *Por qué:* un 503, un 429, un timeout o una conexión caída son pasajeros (por
   ejemplo, el servicio se está reiniciando). Un 400 o un 404 son definitivos: repetir
   da la misma respuesta y gasta peticiones de la dependencia. Todas nuestras llamadas
@@ -245,15 +247,15 @@ sequenceDiagram
 **2. `leer_retry_after(respuesta)` → segundos o nada**
 - *Qué hace:* lee la cabecera `Retry-After` y la convierte en segundos. El servicio
   manda segundos enteros; el estándar HTTP (RFC 9110) también permite una fecha.
-  Propuesta: aceptar las dos formas e ignorar valores inválidos.
+  Acepta las dos formas e ignora los valores inválidos, como «pronto» o «-3».
 - *Por qué:* es el servidor diciendo cuándo volver. Si volvemos antes, el servicio
   responde otro 429 y lo deja registrado.
 
-**3. `calcular_espera(intento, retry_after)` → segundos**
+**3. `calcular_espera(intento, retry_after, base, tope)` → segundos**
 - *Qué hace:* backoff exponencial con **jitter completo**:
   `espera = azar(0, mín(TOPE, BASE · 2^intento))`, y si vino Retry-After,
   `espera = máx(retry_after, espera)`.
-- *Ejemplo* con BASE = 0,5 s y TOPE = 8 s: intento 0 → entre 0 y 0,5 s; intento 1 →
+- *Ejemplo* con los valores por defecto, BASE = 0,5 s y TOPE = 8 s: intento 0 → entre 0 y 0,5 s; intento 1 →
   0–1 s; intento 2 → 0–2 s; intento 3 → 0–4 s; de ahí en adelante, 0–8 s.
 - *Por qué exponencial:* cada fallo sugiere que la dependencia está más cargada, y
   esperar más le da aire.
@@ -262,10 +264,11 @@ sequenceDiagram
 - *Por qué el máximo con Retry-After:* el azar puede dar menos de lo que pidió el
   servidor; nunca hay que volver antes.
 
-**4. `timeout_para(intento)` → timeout de httpx**
+**4. `timeout_para(intento, timeouts_lectura)` → segundos de lectura**
 - *Qué hace:* aplica D19, que ajustó D13. El timeout de lectura es 3 s en el primer
-  intento, 6 s en el segundo y 8 s del tercero en adelante; el de conexión es fijo
-  (propuesta: 2 s). `llamar_con_reintentos` lo recorta a lo que quede del plazo (D18).
+  intento, 6 s en el segundo y 8 s del tercero en adelante; el de conexión es fijo,
+  de 2 s. `llamar_con_reintentos` arma con ellos el `httpx.Timeout` del intento, y lo
+  recorta a lo que quede del plazo (D18).
 - *Por qué:* casi siempre conviene cortar rápido una respuesta lenta, porque el
   siguiente intento suele caer en una normal. Pero si ya fallamos, se da más margen
   para no seguir cortando una dependencia que simplemente está lenta.
@@ -276,45 +279,64 @@ sequenceDiagram
 - `cerrar_hasta(instante)`: cuando llega un 429, guarda hasta cuándo no se puede
   llamar. Si ya había un cierre más largo, conserva el mayor.
 - `esperar()`: se llama antes de cada petición; si la compuerta está cerrada, duerme
-  hasta que abra.
+  hasta que abra. Duerme en bucle, porque mientras espera otro 429 puede alargar el
+  cierre.
+- `falta()` y `hasta`: cuánto falta para que abra y en qué instante; `/v1/metricas`
+  los muestra.
 - *Por qué:* el servicio bloquea **por IP**. Un solo 429 bloquea todas nuestras
   llamadas, no solo la que lo recibió. Sin compuerta, las otras llamadas en vuelo
   saldrían antes de tiempo y el log del docente las mostraría como «no respetó
   Retry-After» (D14).
 - Solo la usa el servicio inestable; Open-Meteo no manda Retry-After (D22).
 
-**6. `llamar_con_reintentos(cliente, método, url, máximo, fecha_límite, compuerta)`**
-→ respuesta, o error final
+**6. `llamar_con_reintentos(cliente, método, url, *, politica, fecha_limite, compuerta, metricas, params)`**
+→ la respuesta, o `ErrorDependencia`
 
 El ciclo que une todo; toda llamada saliente pasa por aquí:
 
 ```text
-para cada intento desde 0 hasta máximo - 1:
-    si hay compuerta: esperarla; si abre después de la fecha límite → dejar de intentar
-    hacer la petición con timeout mín(timeout_para(intento), fecha límite − ahora)
-    si salió bien (2xx)             → devolverla
-    si no es reintentable (400/404) → devolverla sin reintentar
-    si es 429 y hay compuerta       → cerrar la compuerta con su Retry-After
-    calcular la espera; si ahora + espera pasa de la fecha límite → dejar de intentar
-    registrar el intento (evidencia) y dormir la espera
-si se agotaron los intentos o el plazo → error de dependencia (D20):
-    504 si el último intento fue timeout o se acabó el plazo; 502 en los demás casos
+para cada intento desde 0 hasta política.máximo - 1:
+    si la compuerta está cerrada:
+        si abre después de la fecha límite → rendirse por plazo
+        escribir la espera en la evidencia y esperar a que abra
+    hacer la petición con timeout de lectura mín(timeout_para(intento), lo que queda),
+        dentro de asyncio.timeout(lo que queda): ningún intento pasa del plazo
+    si respondió algo no reintentable:
+        2xx o 4xx (400, 404…) → devolverlo; la ruta decide qué responder (404 → 404)
+        otro 5xx              → rendirse sin reintentar (502)
+    si es un 429 con Retry-After y hay compuerta → cerrarla hasta ahora + Retry-After
+    si era el último intento → rendirse
+    calcular la espera; si ahora + espera pasa de la fecha límite → rendirse por plazo
+    escribir la línea de evidencia y dormir la espera
+rendirse = lanzar ErrorDependencia(causa, intentos enviados):
+    504 si la causa es timeout o plazo; 502 en los demás casos (D20)
 ```
 
-- *Quién la llama y con qué:* los sensores, con `máximo = 6` y la compuerta (D17);
-  Open-Meteo, con `máximo = 3` y sin compuerta (D22).
-- *La fecha límite:* la fija el endpoint al recibir la petición: ahora + 45 s en
-  `/v1/sensores` y ahora + 15 s en los de Open-Meteo (D18). La comparten todas las
-  llamadas de esa petición, así que ninguna respuesta nuestra pasa de su plazo.
+- *`Politica`:* los números de cada dependencia. `main.py` arma dos: la de los
+  sensores, con `maximo = 6` (D17), y la de Open-Meteo, con `maximo = 3` (D22). Los
+  sensores pasan además la compuerta, que es una sola para todo el agregador.
+- *La fecha límite:* un instante de `time.monotonic()` que fija la ruta al recibir la
+  petición: ahora + 45 s en `/v1/sensores` y ahora + 15 s en los de Open-Meteo (D18).
+  La comparten todas las llamadas de esa petición, así que ninguna respuesta nuestra
+  pasa de su plazo.
+- *Cuando se rinde:* `ErrorDependencia` sube hasta el manejador de `main.py`, que
+  responde 502 o 504 con el cuerpo `CuerpoErrorDependencia` (dependencia, causa e
+  intentos). Nunca sale un 500 por una dependencia.
 - *Por qué en un solo lugar:* así las reglas no se repiten ni se contradicen entre
   endpoints.
 - *Evidencia:* cada intento escribe una línea con la hora, el id de la petición
   recibida, la dependencia, el número de intento, la URL, el resultado, la espera
   elegida y si vino Retry-After, en el formato de D37:
   `[16:40:04.512] r-7f3a sensores 2/6 GET /sensores -> 429 · Retry-After 2 s · espera 2,00 s`.
-- *Métricas:* cada intento suma a los contadores de `GET /v1/metricas` (D35).
+- *Métricas:* cada llamada y cada intento suman a los contadores de
+  `GET /v1/metricas` (D35), por resultado.
+- *Pruebas:* `pruebas/test_resiliencia.py` lo comprueba sin red, con un servidor y un
+  reloj falsos: 503 → 200; Retry-After respetado; 400 y 404 sin reintento; conexión
+  caída reintentada; timeouts agotados → 504; 503 agotados → 502; plazo agotado → 504;
+  otro 5xx → 502 sin reintento; la compuerta frena a otra llamada, y una línea de
+  evidencia por intento.
 
-**7. `recorrer_paginas()`** → lista de sensores y si quedó completa
+**7. `recorrer_paginas()`** → lista de sensores y si quedó completa *(diseño; tarea 7)*
 - *Qué hace:* pide `/sensores`, luego `/sensores?cursor=siguiente`, hasta que
   `siguiente` sea `null`. Cada página pasa por `llamar_con_reintentos`, con la fecha
   límite de la petición.
@@ -323,7 +345,7 @@ si se agotaron los intentos o el plazo → error de dependencia (D20):
   Las páginas son el eslabón débil: sin el cursor de una no se puede pedir la
   siguiente (hallazgo M2), y por eso el máximo es de 6 intentos (D17).
 
-**8. `leer_lecturas(ids)`** → lecturas, con `null` y motivo en las que fallaron
+**8. `leer_lecturas(ids)`** → lecturas, con `null` y motivo en las que fallaron *(diseño; tarea 7)*
 - *Qué hace:* pide las lecturas con un máximo de 4 a la vez (un semáforo de asyncio).
   Cada una pasa por la compuerta y por `llamar_con_reintentos`, con la misma fecha
   límite que las páginas.
@@ -352,22 +374,38 @@ cerrarla.
 
 ## Cómo correr lo que ya existe
 
-Por ahora solo el servicio inestable. Todavía no hay Dockerfile ni Compose: ya están
-decididos (D28–D31) y se escriben con el código. Mientras tanto, el servicio se puede
-correr en un contenedor con la imagen oficial de Python:
+Todo con Docker Compose ([D28](#log-de-decisiones)); no hay instrucciones sin Docker
+([D23](#log-de-decisiones)). Por ahora el agregador tiene `/salud`, `/v1/metricas` y
+los reintentos; las rutas de sensores, ciudades y alertas llegan con sus tareas del
+canvas.
 
 ```bash
-docker run --rm -p 9000:9000 -v "$PWD":/app:ro -w /app python:3.12-slim \
-  sh -c "pip install -q fastapi uvicorn && exec python servicio_inestable.py --host 0.0.0.0 --semilla 42"
-curl http://127.0.0.1:9000/salud
+docker compose up -d --wait            # agregador (:8000) y servicio inestable (:9000)
+curl localhost:8000/salud
+curl localhost:8000/v1/metricas
+docker compose run --rm pruebas        # pruebas (D26)
+docker compose logs -f                 # evidencia de los reintentos (D37)
+docker compose down
+```
+
+Con los parámetros del docente, sin editar nada (D28, hallazgo C5):
+
+```bash
+TASA_FALLOS=0.4 LATENCIA=5 docker compose up -d --wait
+```
+
+Variables del servicio inestable: `TASA_FALLOS`, `TASA_429`, `TASA_LENTITUD`,
+`LATENCIA`, `RETRY_AFTER`, `TAM_PAGINA` y `SEMILLA`. Para apuntar el agregador a una
+instancia del docente que corre en otro contenedor de su máquina, publicada en el
+puerto 9000 (D30, caso B):
+
+```bash
+SERVICIO_INESTABLE_URL=http://host.docker.internal:9000 docker compose up -d --wait agregador
 ```
 
 **`--host 0.0.0.0` es obligatorio dentro de un contenedor.** El servicio escucha por
-defecto en `127.0.0.1`, que dentro del contenedor solo responde desde adentro; desde
-la máquina la conexión se corta. Se verificó el 2026-10-17 (ver el
-[análisis](spdd/analysis/), hallazgo C1).
-
-No hay instrucciones sin Docker ([D23](#log-de-decisiones)).
+defecto en `127.0.0.1`, que dentro del contenedor solo responde desde adentro; el
+Compose ya lo arranca así (hallazgo C1 del [análisis](spdd/analysis/)).
 
 ## Cómo continuar
 
