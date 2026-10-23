@@ -29,6 +29,10 @@ del log de evidencias; D38, seguir con las plantillas propias; D39, hacer la Par
 antes del dashboard, y D40, los roles. **No quedan pendientes**, pero **sigue sin
 haber código de la aplicación**: lo siguiente es el canvas.
 
+Los PR #2, #3 y #4 se fusionaron, pero el #3 y el #4 quedaron fusionados contra sus
+ramas base y no contra `main` (ver «Cómo seguir»). Las rondas 7 y 8 llegaron a `main`
+con un PR aparte, desde la rama `docs/rondas-7-y-8-a-main`.
+
 Leer en este orden:
 
 1. [`README.md`](README.md): estado, integrantes y roles, log de decisiones D01–D40,
@@ -85,16 +89,14 @@ Leer en este orden:
 
 ## Próximos pasos, en orden
 
-1. **Fusionar los PR de las decisiones en orden**: #2 (rondas 5 y 6), #3 (ronda 7) y
-   el de la ronda 8. Cuando se fusiona uno, se cambia a `main` la base del siguiente.
-   Maria Fernanda completa o corrige su fila de integrantes si hace falta.
-2. Revisar el análisis en equipo y cambiar su estado a «revisado».
-3. Escribir el canvas en
+1. Revisar el análisis en equipo y cambiar su estado a «revisado». De paso, Maria
+   Fernanda revisa su fila en «Integrantes y roles» del README.
+2. Escribir el canvas en
    `spdd/prompt/AR-001-AAAAMMDDhhmm-[Feat]-agregador-backend.md` a partir de la
    plantilla (D38). Cada afirmación debe citar las D de las que depende, y lo que
    pide exactamente la Parte E se detalla ahí (D39).
-4. Revisar el canvas en equipo.
-5. Solo entonces generar código, tarea por tarea según la sección Operations: primero
+3. Revisar el canvas en equipo.
+4. Solo entonces generar código, tarea por tarea según la sección Operations: primero
    el backend (D09), después la Parte E y al final el dashboard (D39). Cada integrante
    se ocupa de las piezas de su rol (D40). Con el backend listo, medir
    `GET /v1/sensores` contra el servicio real y comparar con la simulación (sección 4
@@ -106,9 +108,17 @@ El PR #1 (`docs/requerimientos-iniciales`) ya se fusionó en `main`. Cada ronda 
 cosa terminada va en su propia rama, creada desde `main`, y en su propio PR (regla 8).
 Si el PR anterior sigue abierto, la rama nueva se crea desde la suya y su PR apunta a
 ella, para mostrar solo lo nuevo (así se hizo la ronda 7 sobre la 5 y 6); cuando el
-anterior se fusiona, se cambia la base a `main`. Para que la colaboración se vea en el
-repo, los demás integrantes pueden revisar y comentar el PR abierto, o sumarle commits
-a su rama mientras no se fusione:
+anterior se fusiona, se cambia la base a `main`.
+
+> **Antes de fusionar un PR apilado, comprobar que su base ya sea `main`** (botón
+> «Edit» junto al título del PR). GitHub solo cambia la base por su cuenta si la rama
+> base se borra al fusionar el PR anterior; si no, el PR se fusiona contra la rama
+> vieja y sus cambios nunca llegan a `main`. Eso pasó con los PR #3 y #4. Para que no
+> se repita, conviene activar «Automatically delete head branches» en la
+> configuración del repo, o no apilar y esperar a que se fusione el PR anterior.
+
+Para que la colaboración se vea en el repo, los demás integrantes pueden revisar y
+comentar el PR abierto, o sumarle commits a su rama mientras no se fusione:
 
 ```bash
 gh repo clone javierchacon262/agregador-resiliente
