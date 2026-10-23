@@ -14,13 +14,29 @@ El 2026-10-23 se hizo la ronda 5, en la rama `docs/cierra-pendientes-resiliencia
 Las decisiones D17–D22 cierran los pendientes de resiliencia (P08, P09, P11 y P12)
 con el apoyo de una simulación, y se confirmaron D07 y los supuestos S1–S3. En la
 ronda 6, sobre el mismo PR, el equipo agregó D23: nada fuera de Docker, tampoco con el
-docente (él lo confirmó), lo que cierra P20 y R4. **Sigue sin haber código de la
-aplicación**: el equipo pidió cerrar las decisiones antes de desarrollar.
+docente (él lo confirmó), lo que cierra P20 y R4.
+
+El mismo día se hizo la ronda 7, en la rama `docs/idempotencia-y-docker`, creada
+desde la de la ronda 5 porque su PR seguía abierto. D24–D25 definen la alerta y la
+idempotencia; D26 elige pytest + httpx para la colección de pruebas (P22, un pendiente
+que salió en la ronda); D27 descarta la CI (riesgo R5, aceptado), y D28–D31 definen
+cómo se arma Docker, verificado con Compose (hallazgos C5–C7).
+
+También ese día, la ronda 8 cerró los nueve pendientes que quedaban, en la rama
+`docs/cierra-pendientes-finales`, apilada sobre la de la ronda 7. D32–D35 definen la
+caché, la medición de latencia y las métricas; D36, la búsqueda vacía; D37, el formato
+del log de evidencias; D38, seguir con las plantillas propias; D39, hacer la Parte E
+antes del dashboard, y D40, los roles. **No quedan pendientes**, pero **sigue sin
+haber código de la aplicación**: lo siguiente es el canvas.
+
+Los PR #2, #3 y #4 se fusionaron, pero el #3 y el #4 quedaron fusionados contra sus
+ramas base y no contra `main` (ver «Cómo seguir»). Las rondas 7 y 8 llegaron a `main`
+con un PR aparte, desde la rama `docs/rondas-7-y-8-a-main`.
 
 Leer en este orden:
 
-1. [`README.md`](README.md): estado, log de decisiones D01–D23, riesgos R1–R4,
-   pendientes que quedan y supuestos S1–S3.
+1. [`README.md`](README.md): estado, integrantes y roles, log de decisiones D01–D40,
+   riesgos R1–R5 y supuestos S1–S3. La tabla de pendientes está vacía.
 2. [`requirements/AR-001-…-[Story]-…`](requirements/): historias HU1–HU8 con sus
    criterios de aceptación.
 3. [`spdd/analysis/AR-001-…-[Analysis]-…`](spdd/analysis/): lo que se encontró
@@ -39,13 +55,17 @@ Leer en este orden:
    cada pregunta con sus opciones, se marca una recomendada y se explica qué cambia
    con cada una. Cuando el equipo confirma:
    - se agrega una fila a la tabla «Log de decisiones» del README con el siguiente ID
-     (D24, D25, …), las alternativas descartadas, el porqué, la sección REASONS que
+     (D41, D42, …), las alternativas descartadas, el porqué, la sección REASONS que
      alimenta y la ronda;
    - si cierra un pendiente, se borra de la tabla de pendientes y la decisión dice
      «cierra P0X»;
    - si modifica una decisión anterior, esa no se borra: se le agrega la nota
      «Ajustada por DXX» (como D13 y D19);
    - se actualiza el contador de la sección «Estado».
+
+   Si al escribir el canvas o el código aparece una pregunta nueva, se agrega a la
+   tabla de pendientes como P23, P24, …, y no se genera código para esa parte hasta
+   cerrarla.
 3. **Primero el canvas, después el código.** Si cambia el comportamiento, se corrige
    el canvas y luego se regenera el código. Si es un refactor sin cambio de
    comportamiento, se cambia el código y luego se sincroniza el canvas. Las secciones
@@ -69,17 +89,16 @@ Leer en este orden:
 
 ## Próximos pasos, en orden
 
-1. **Cerrar los pendientes que quedan con el equipo**, en rondas cortas de preguntas.
-   Conviene seguir con P06–P07 (qué es una alerta y la semántica de
-   `Idempotency-Key`), porque la idempotencia vale 10 puntos, y con P16–P19 y P21,
-   que definen cómo se arma Docker, ahora que es la única forma de correr todo (D23).
-2. Revisar el análisis en equipo y cambiar su estado a «revisado».
-3. Escribir el canvas en
+1. Revisar el análisis en equipo y cambiar su estado a «revisado». De paso, Maria
+   Fernanda revisa su fila en «Integrantes y roles» del README.
+2. Escribir el canvas en
    `spdd/prompt/AR-001-AAAAMMDDhhmm-[Feat]-agregador-backend.md` a partir de la
-   plantilla. Cada afirmación debe citar las D y P de las que depende.
-4. Revisar el canvas en equipo.
-5. Solo entonces generar código, tarea por tarea según la sección Operations: primero
-   el backend (D09) y después el dashboard. Con el backend listo, medir
+   plantilla (D38). Cada afirmación debe citar las D de las que depende, y lo que
+   pide exactamente la Parte E se detalla ahí (D39).
+3. Revisar el canvas en equipo.
+4. Solo entonces generar código, tarea por tarea según la sección Operations: primero
+   el backend (D09), después la Parte E y al final el dashboard (D39). Cada integrante
+   se ocupa de las piezas de su rol (D40). Con el backend listo, medir
    `GET /v1/sensores` contra el servicio real y comparar con la simulación (sección 4
    del análisis); si no coincide, se corrige primero el canvas.
 
@@ -87,6 +106,17 @@ Leer en este orden:
 
 El PR #1 (`docs/requerimientos-iniciales`) ya se fusionó en `main`. Cada ronda o
 cosa terminada va en su propia rama, creada desde `main`, y en su propio PR (regla 8).
+Si el PR anterior sigue abierto, la rama nueva se crea desde la suya y su PR apunta a
+ella, para mostrar solo lo nuevo (así se hizo la ronda 7 sobre la 5 y 6); cuando el
+anterior se fusiona, se cambia la base a `main`.
+
+> **Antes de fusionar un PR apilado, comprobar que su base ya sea `main`** (botón
+> «Edit» junto al título del PR). GitHub solo cambia la base por su cuenta si la rama
+> base se borra al fusionar el PR anterior; si no, el PR se fusiona contra la rama
+> vieja y sus cambios nunca llegan a `main`. Eso pasó con los PR #3 y #4. Para que no
+> se repita, conviene activar «Automatically delete head branches» en la
+> configuración del repo, o no apilar y esperar a que se fusione el PR anterior.
+
 Para que la colaboración se vea en el repo, los demás integrantes pueden revisar y
 comentar el PR abierto, o sumarle commits a su rama mientras no se fusione:
 
@@ -94,9 +124,9 @@ comentar el PR abierto, o sumarle commits a su rama mientras no se fusione:
 gh repo clone javierchacon262/agregador-resiliente
 cd agregador-resiliente
 git switch main && git pull
-git switch -c docs/lo-que-sigue
+git switch -c docs/canvas-backend
 # … trabajar, y luego:
-git add -A && git commit -m "docs(decisiones): cierra P06 y P07"
-git push -u origin docs/lo-que-sigue
+git add -A && git commit -m "docs(spdd): canvas REASONS del backend"
+git push -u origin docs/canvas-backend
 gh pr create
 ```
