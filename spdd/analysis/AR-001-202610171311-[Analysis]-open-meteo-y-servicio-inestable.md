@@ -201,6 +201,7 @@ datos», ni un sensor con lectura, que es el caso que responde 502/504 (D21).
 
 ## 6. Preguntas abiertas que salieron del análisis
 
-En la ronda 5 se cerraron P08 (D17 y D18), P09 (D21), P11 (D22) y P12 (D20). Siguen
-en la tabla de [decisiones pendientes](../../README.md#decisiones-pendientes) del
-README: P02 (TTL), P10 (búsqueda vacía) y P16–P21 (cómo se arma Docker).
+En la ronda 5 se cerraron P08 (D17 y D18), P09 (D21), P11 (D22) y P12 (D20), y en
+la 6, P20 (D23). Siguen en la tabla de
+[decisiones pendientes](../../README.md#decisiones-pendientes) del README: P02 (TTL),
+P10 (búsqueda vacía), y P16–P19 y P21 (cómo se arma Docker).

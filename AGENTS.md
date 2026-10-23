@@ -12,13 +12,14 @@ Docker para todo lo que se ejecute. Ese trabajo se fusionó en `main` con el PR 
 
 El 2026-10-23 se hizo la ronda 5, en la rama `docs/cierra-pendientes-resiliencia`.
 Las decisiones D17–D22 cierran los pendientes de resiliencia (P08, P09, P11 y P12)
-con el apoyo de una simulación, y se confirmaron D07 y los supuestos S1–S3. **Sigue
-sin haber código de la aplicación**: el equipo pidió cerrar las decisiones antes de
-desarrollar.
+con el apoyo de una simulación, y se confirmaron D07 y los supuestos S1–S3. En la
+ronda 6, sobre el mismo PR, el equipo agregó D23: nada fuera de Docker, tampoco con el
+docente (él lo confirmó), lo que cierra P20 y R4. **Sigue sin haber código de la
+aplicación**: el equipo pidió cerrar las decisiones antes de desarrollar.
 
 Leer en este orden:
 
-1. [`README.md`](README.md): estado, log de decisiones D01–D22, riesgos R1–R4,
+1. [`README.md`](README.md): estado, log de decisiones D01–D23, riesgos R1–R4,
    pendientes que quedan y supuestos S1–S3.
 2. [`requirements/AR-001-…-[Story]-…`](requirements/): historias HU1–HU8 con sus
    criterios de aceptación.
@@ -38,7 +39,7 @@ Leer en este orden:
    cada pregunta con sus opciones, se marca una recomendada y se explica qué cambia
    con cada una. Cuando el equipo confirma:
    - se agrega una fila a la tabla «Log de decisiones» del README con el siguiente ID
-     (D23, D24, …), las alternativas descartadas, el porqué, la sección REASONS que
+     (D24, D25, …), las alternativas descartadas, el porqué, la sección REASONS que
      alimenta y la ronda;
    - si cierra un pendiente, se borra de la tabla de pendientes y la decisión dice
      «cierra P0X»;
@@ -62,16 +63,16 @@ Leer en este orden:
    hace push directo a `main`. Prefijos de rama: `docs/`, `feat/`, `fix/`.
 9. **Todo lo que se ejecute del prototipo corre en contenedores** (D16): el agregador,
    el servicio inestable, las pruebas y la medición de latencia. Las instrucciones de
-   arranque son con Docker; las de `venv` solo existen como plan B si se aprueba P20.
+   arranque son solo con Docker: no hay plan B con `venv`, tampoco con el docente (D23).
    El servicio inestable va siempre con `--host 0.0.0.0` dentro de un contenedor
    (hallazgo C1 del análisis).
 
 ## Próximos pasos, en orden
 
 1. **Cerrar los pendientes que quedan con el equipo**, en rondas cortas de preguntas.
-   Conviene seguir con P20 (plan B sin Docker), que depende de confirmar con el
-   docente si tiene Docker (riesgo R4), y con P06–P07 (qué es una alerta y la
-   semántica de `Idempotency-Key`), porque la idempotencia vale 10 puntos.
+   Conviene seguir con P06–P07 (qué es una alerta y la semántica de
+   `Idempotency-Key`), porque la idempotencia vale 10 puntos, y con P16–P19 y P21,
+   que definen cómo se arma Docker, ahora que es la única forma de correr todo (D23).
 2. Revisar el análisis en equipo y cambiar su estado a «revisado».
 3. Escribir el canvas en
    `spdd/prompt/AR-001-AAAAMMDDhhmm-[Feat]-agregador-backend.md` a partir de la

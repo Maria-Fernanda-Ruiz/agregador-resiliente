@@ -11,8 +11,8 @@ registrada en este README.
 
 ## Estado
 
-> **Fase actual: aclarar requerimientos (paso 2 de SPDD).** Hay 22 decisiones tomadas
-> y 17 pendientes. **Todavía no hay código**: el equipo decidió cerrar las decisiones
+> **Fase actual: aclarar requerimientos (paso 2 de SPDD).** Hay 23 decisiones tomadas
+> y 16 pendientes. **Todavía no hay código**: el equipo decidió cerrar las decisiones
 > antes de desarrollar. Lo único ejecutable es `servicio_inestable.py`, del docente,
 > y la simulación de reintentos del análisis.
 
@@ -44,7 +44,8 @@ falta que el equipo lo revise.
 ## Qué vamos a construir
 
 Todo lo que se ejecute corre en contenedores Docker ([D16](#log-de-decisiones)): el
-agregador, el servicio inestable, las pruebas y la medición de latencia.
+agregador, el servicio inestable, las pruebas y la medición de latencia. También con
+el docente: no hay plan B fuera de Docker ([D23](#log-de-decisiones)).
 
 API propia (todo bajo `/v1`, salvo la salud):
 
@@ -137,7 +138,8 @@ D01–D16 se tomaron el 2026-10-17. La ronda 0 es lo que el equipo trajo decidid
 la 1 a la 3 se iteró con el agente antes de escribir nada; la 4 la propuso el equipo
 después de abrir el PR. La ronda 5 (2026-10-23) cerró los pendientes de resiliencia
 con el apoyo de una simulación (sección 4 del [análisis](spdd/analysis/), hallazgos
-M1–M6), y confirmó D07 y los supuestos S1–S3.
+M1–M6), y confirmó D07 y los supuestos S1–S3. La 6 la propuso el equipo después de
+abrir el PR de la ronda 5.
 
 | ID | Decisión | Alternativas descartadas | Por qué | REASONS | Ronda |
 |---|---|---|---|---|---|
@@ -163,6 +165,7 @@ M1–M6), y confirmó D07 y los supuestos S1–S3.
 | D20 | **504** si el último intento terminó en timeout o se acabó el plazo; **502** si la dependencia respondió con error (503, 429 o error de conexión hasta agotar los intentos) o con datos que no cumplen el modelo. El cuerpo dice la dependencia, la causa y los intentos. Cierra P12 | 504 solo por timeout y 502 en lo demás (la propuesta de P12); siempre 502 | 504 es «la dependencia no respondió a tiempo», y un plazo agotado también lo es. Distinguir los dos le dice al cliente qué pasó, y la rúbrica califica los códigos de estado | R, A | 5 |
 | D21 | `GET /v1/sensores` responde **502/504** (según D20) si no obtuvo ningún sensor **o ninguna lectura**; si hay al menos una lectura, 200 con `completo: false` y el motivo (D15). Cierra P09 y R1 | Solo cuando falta la primera página (lo que había recomendado el agente); 200 vacío con `completo: false` | Elección del equipo: una lista de sensores sin ningún valor se trata como fallo de la dependencia, no como resultado parcial. En la simulación pasa el 0,5 % de las veces (defecto) y el 1,9 % (enunciado) | R, A | 5 |
 | D22 | **Reintentos también hacia Open-Meteo**, con la misma función y reglas, sin compuerta (no manda Retry-After, E10), máximo 3 intentos y plazo de 15 s. Los **errores de conexión** (conexión rechazada o cortada) se reintentan hacia las dos dependencias. Cierra P11 | Igual que sensores, con 6 intentos; solo errores de conexión y timeouts; no reintentar Open-Meteo | Un fallo pasajero de Open-Meteo no debería volverse un 502 si un segundo intento lo resuelve. Pero es estable y la IP de la sala es compartida (E13): si manda un 429, insistir 6 veces perjudica a todos | A | 5 |
+| D23 | **Nada fuera de Docker**, tampoco con el docente: no hay plan B con `venv`. Cierra P20 y R4 | Plan B con `venv` documentado en el README (la propuesta de P20) | El docente confirmó que corre todo en Docker. Un plan B no cubriría ningún caso real y obligaría a mantener instrucciones duplicadas y a probar el código fuera del contenedor (S2) | S, N | 6 |
 
 ### Riesgos y matices
 
@@ -171,7 +174,7 @@ M1–M6), y confirmó D07 y los supuestos S1–S3.
 | R1 | D15 choca con el enunciado cuando **no se obtiene nada**: exige «502 o 504 si la dependencia falla» y prohíbe el 500 genérico | **Cerrado por D21**: sin sensores o sin ninguna lectura, 502/504. Queda para el dashboard: una lista incompleta debe marcarse en sus estadísticas. |
 | R2 | Con D13 el peor caso se alarga: 3 + 5 + 8 + 8 s de timeouts más las esperas pasa de 25 s | **Cerrado por D17 y D18**: 6 intentos por llamada, pero ninguna petición pasa de su plazo (45 s en sensores, 15 s en Open-Meteo). |
 | R3 | D11: el repo es público antes de la entrega | Aceptado por el equipo. |
-| R4 | D16 depende de que el docente tenga Docker. En el taller de FastAPI de esta misma materia se dijo que no lo tenía, y el enunciado pide no instalar nada que exija reiniciar (Docker Desktop en Windows suele pedir WSL2 y un reinicio) | Confirmar con el docente y cerrar [P20](#decisiones-pendientes) (plan B sin Docker). |
+| R4 | D16 depende de que el docente tenga Docker. En el taller de FastAPI de esta misma materia se dijo que no lo tenía, y el enunciado pide no instalar nada que exija reiniciar (Docker Desktop en Windows suele pedir WSL2 y un reinicio) | **Cerrado por D23**: el docente confirmó que corre todo en Docker. |
 
 ### D12 en detalle: reintentos, función por función
 
@@ -326,7 +329,6 @@ tabla de arriba.
 | P17 | Imagen del agregador | `python:3.12-slim` fijada (¿por tag o por digest?), `requirements.txt` con versiones exactas, usuario no root, `PYTHONUNBUFFERED=1` y `CMD` en forma exec | D16 |
 | P18 | Cómo apuntar a la instancia del docente | `SERVICIO_INESTABLE_URL`, por defecto `http://servicio-inestable:9000` (nombre del servicio en Compose). Si el docente corre su servicio en su máquina, `http://host.docker.internal:9000`, que en Linux necesita `extra_hosts: ["host.docker.internal:host-gateway"]` | D16 |
 | P19 | Healthchecks y orden de arranque | Healthcheck a `/salud` en los dos servicios, hecho con Python porque la imagen slim no trae `curl`; el agregador arranca con `depends_on: condition: service_healthy` | D16 |
-| P20 | ¿Plan B sin Docker documentado? (R4) | Sí: una sección corta con `venv` en el README; cuesta poco y cubre una sala sin Docker | D16 |
 | P21 | ¿CI que demuestre la reproducibilidad? | GitHub Actions que en cada PR construya las imágenes, levante Compose y corra la colección de pruebas | D16 |
 
 ### Supuestos (confirmados en la ronda 5)
@@ -334,7 +336,7 @@ tabla de arriba.
 | ID | Supuesto |
 |---|---|
 | S1 | La API y el código van en español, como el enunciado (`/v1/ciudades`, `alertas`). |
-| S2 | Con D16, la versión de Python la fija la imagen (propuesta: 3.12, ver P17). Si se acepta el plan B (P20), el código debe correr también con Python 3.11 o superior en Windows. |
+| S2 | Con D16, la versión de Python la fija la imagen (propuesta: 3.12, ver P17). Como no hay plan B (D23), el código no necesita correr fuera de la imagen. |
 | S3 | `servicio_inestable.py` no se modifica: es del docente y se configura por parámetros. |
 
 ## Cómo correr lo que ya existe
@@ -353,14 +355,7 @@ defecto en `127.0.0.1`, que dentro del contenedor solo responde desde adentro; d
 la máquina la conexión se corta. Se verificó el 2026-10-17 (ver el
 [análisis](spdd/analysis/), hallazgo C1).
 
-Sin Docker (plan B, pendiente de P20):
-
-```bash
-python -m venv venv
-source venv/bin/activate          # Windows: venv\Scripts\activate
-pip install fastapi uvicorn httpx
-python servicio_inestable.py --semilla 42
-```
+No hay instrucciones sin Docker ([D23](#log-de-decisiones)).
 
 ## Cómo continuar
 

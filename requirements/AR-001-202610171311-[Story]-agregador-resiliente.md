@@ -4,7 +4,7 @@
 |---|---|
 | ID | AR-001 |
 | Tipo | Historia (paso 1 de SPDD) |
-| Estado | Borrador revisado en las rondas 1–5 de decisiones; quedan pendientes en el [README](../README.md#decisiones-pendientes) |
+| Estado | Borrador revisado en las rondas 1–6 de decisiones; quedan pendientes en el [README](../README.md#decisiones-pendientes) |
 | Fecha | 2026-10-17 |
 | Fuente | Enunciado «Evaluación-taller: Agregador resiliente de APIs», Sistemas Distribuidos, UIS |
 
@@ -139,8 +139,7 @@ entrega sin instalar dependencias en mi máquina ([D16](../README.md#log-de-deci
 4. Colección de peticiones de prueba que el docente pueda ejecutar.
 5. `/docs` describe correctamente el contrato.
 6. Dockerfile y Docker Compose con los que todo lo anterior corre en contenedores
-   desde un clon limpio del repo (D16). Si se aprueba el plan B (P20), también hay
-   instrucciones sin Docker.
+   desde un clon limpio del repo (D16). No hay instrucciones sin Docker (D23).
 
 ## Cómo se califica (para priorizar)
 
@@ -156,5 +155,6 @@ entrega sin instalar dependencias en mi máquina ([D16](../README.md#log-de-deci
 
 La reproducibilidad y la desplegabilidad (HU8) no aparecen en esta tabla del
 enunciado. El equipo las incluye porque, según el equipo, son temas importantes de la
-evaluación. Si el docente revisa con Docker, el criterio de
-«ejecuta la colección contra su propia instancia» depende directamente de HU8.
+evaluación. El docente confirmó que revisa con Docker
+([D23](../README.md#log-de-decisiones)), así que el criterio de «ejecuta la colección
+contra su propia instancia» depende directamente de HU8.
