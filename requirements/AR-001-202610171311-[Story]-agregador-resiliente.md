@@ -4,7 +4,7 @@
 |---|---|
 | ID | AR-001 |
 | Tipo | Historia (paso 1 de SPDD) |
-| Estado | Borrador revisado en las rondas 1–4 de decisiones; pendiente cerrar P01–P21 del [README](../README.md#decisiones-pendientes) |
+| Estado | Borrador revisado en las rondas 1–5 de decisiones; quedan pendientes en el [README](../README.md#decisiones-pendientes) |
 | Fecha | 2026-10-17 |
 | Fuente | Enunciado «Evaluación-taller: Agregador resiliente de APIs», Sistemas Distribuidos, UIS |
 
@@ -35,7 +35,11 @@ es ambiguo (San José da 10 resultados y el primero es de California).
 - `pais` que no sea un código ISO-2 → **422**.
 - Sin coincidencias → pendiente [P10](../README.md#decisiones-pendientes) (200 con
   lista vacía o 404).
-- Open-Meteo no responde o falla → **502/504**, nunca 500.
+- Las llamadas a Open-Meteo se reintentan con las reglas de HU3, pero con un máximo
+  de 3 intentos, sin compuerta y con un plazo de 15 s por petición
+  ([D18, D22](../README.md#log-de-decisiones)).
+- Open-Meteo no responde o falla → **504** si fue por timeout o se acabó el plazo,
+  **502** en los demás casos; nunca 500 ([D20](../README.md#log-de-decisiones)).
 
 ### HU2 · Ver el clima de la ciudad elegida
 
@@ -47,6 +51,8 @@ elegí, para planear.
 - Responde la ciudad resuelta, el clima actual (temperatura, humedad, código del
   tiempo, viento) y una lista **por día** (máxima, mínima, probabilidad de lluvia).
   Open-Meteo lo entrega en listas paralelas; nosotros lo juntamos por día.
+- Las dos llamadas encadenadas comparten el plazo de 15 s de la petición
+  ([D18](../README.md#log-de-decisiones)); si falla Open-Meteo, lo mismo que en HU1.
 - `id` inexistente: Open-Meteo responde **400 «Location ID not found»** → nosotros
   respondemos **404** y no se reintenta.
 - `dias` fuera de 1–16 → **422** antes de llamar a Open-Meteo.
@@ -63,11 +69,15 @@ estadísticas por tipo y ubicación y compararlas con el clima exterior.
   el cursor `siguiente` hasta `null`.
 - Pide la lectura de cada sensor con un máximo de 4 llamadas a la vez y una compuerta
   compartida de Retry-After ([D14](../README.md#log-de-decisiones)).
-- Reintenta solo 503, 429 y timeouts, con backoff exponencial y jitter; respeta
-  Retry-After; nunca reintenta 400 ni 404 ([D12](../README.md#log-de-decisiones)).
-- Si algo sigue fallando tras agotar los reintentos, devuelve lo que obtuvo marcado
-  como incompleto ([D15](../README.md#log-de-decisiones)); el caso «no se obtuvo
-  nada» está pendiente ([P09](../README.md#decisiones-pendientes)).
+- Reintenta solo 503, 429, timeouts y errores de conexión, con backoff exponencial y
+  jitter; respeta Retry-After; nunca reintenta 400 ni 404
+  ([D12, D22](../README.md#log-de-decisiones)).
+- Hasta 6 intentos por llamada, con timeouts de 3, 6 y 8 s, y nunca más de 45 s
+  para toda la petición ([D17, D18, D19](../README.md#log-de-decisiones)).
+- Si algo sigue fallando tras agotar los intentos o el plazo, devuelve lo que obtuvo
+  con `completo: false` y el motivo ([D15](../README.md#log-de-decisiones)). Si no
+  obtuvo ningún sensor, o ninguna lectura, responde **502/504**
+  ([D20, D21](../README.md#log-de-decisiones)).
 - La URL del servicio inestable se lee de una variable de entorno.
 
 ### HU4 · Crear una alerta sin duplicados
