@@ -36,11 +36,14 @@ con un PR aparte, desde la rama `docs/rondas-7-y-8-a-main`.
 Después se escribió el canvas del backend, en la rama `docs/canvas-backend`. El equipo
 pidió un canvas breve, que cite las decisiones en vez de repetirlas, para pasar al
 código en cuanto se revise. Al escribirlo salió P23: qué pide exactamente la Parte E,
-porque el enunciado no está en el repo.
+porque el enunciado no estaba en el repo. Después se agregó el enunciado en
+`requirements/enunciado/` y D41 cerró P23.
 
 Leer en este orden:
 
-1. [`README.md`](README.md): estado, integrantes y roles, log de decisiones D01–D40,
+0. [`requirements/enunciado/`](requirements/enunciado/enunciado.md): el enunciado del
+   docente, en PDF y transcrito. Es la fuente de todo lo demás.
+1. [`README.md`](README.md): estado, integrantes y roles, log de decisiones D01–D41,
    riesgos R1–R5 y supuestos S1–S3. La tabla de pendientes está vacía.
 2. [`requirements/AR-001-…-[Story]-…`](requirements/): historias HU1–HU8 con sus
    criterios de aceptación.
@@ -63,7 +66,7 @@ Leer en este orden:
    cada pregunta con sus opciones, se marca una recomendada y se explica qué cambia
    con cada una. Cuando el equipo confirma:
    - se agrega una fila a la tabla «Log de decisiones» del README con el siguiente ID
-     (D41, D42, …), las alternativas descartadas, el porqué, la sección REASONS que
+     (D42, D43, …), las alternativas descartadas, el porqué, la sección REASONS que
      alimenta y la ronda;
    - si cierra un pendiente, se borra de la tabla de pendientes y la decisión dice
      «cierra P0X»;
@@ -97,16 +100,14 @@ Leer en este orden:
 
 ## Próximos pasos, en orden
 
-1. **Revisar el canvas del backend** en su PR, incluida la sección «Detalles que fija
-   este canvas», y cambiar su estado a «revisado por el equipo». De paso: revisar el
-   análisis, y Maria Fernanda revisa su fila en «Integrantes y roles».
+1. El canvas del backend ya está revisado (PR #6). Pendiente menor: revisar el
+   análisis, y que Maria Fernanda revise su fila en «Integrantes y roles».
 2. Generar el código, tarea por tarea según la sección Operations: primero
    el backend (D09), después la Parte E y al final el dashboard (D39). Cada integrante
    se ocupa de las piezas de su rol (D40). Con el backend listo, medir
    `GET /v1/sensores` contra el servicio real y comparar con la simulación (sección 4
    del análisis); si no coincide, se corrige primero el canvas.
-3. Antes de la Parte E, cerrar P23 y escribir su canvas; al final, el canvas del
-   dashboard.
+3. Antes de la Parte E, escribir su canvas (D41); al final, el del dashboard.
 
 ## Cómo seguir
 

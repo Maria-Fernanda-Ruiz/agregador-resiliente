@@ -11,11 +11,9 @@ registrada en este README.
 
 ## Estado
 
-> **Fase actual: canvas REASONS del backend (paso 4 de SPDD), en revisión.** Hay 40
-> decisiones tomadas y 1 pendiente (P23, la Parte E), que no bloquea el backend. **Todavía no hay
-> código**: el equipo decidió cerrar las decisiones antes de desarrollar. Lo único
-> ejecutable es `servicio_inestable.py`, del docente, y la simulación de reintentos
-> del análisis.
+> **Fase actual: código del backend (paso 5 de SPDD).** El canvas está revisado y hay
+> 41 decisiones tomadas, sin pendientes. Se genera tarea por tarea, según la sección
+> Operations del [canvas](spdd/prompt/).
 
 ```mermaid
 flowchart LR
@@ -28,13 +26,12 @@ flowchart LR
     G -.->|"refactor sin cambio:<br/>se sincroniza el canvas"| CV
     classDef hecho fill:#2e7d32,stroke:#1b5e20,color:#ffffff
     classDef actual fill:#f9a825,stroke:#f57f17,color:#000000
-    class H,C hecho
-    class AN,CV actual
+    class H,C,CV hecho
+    class AN,G actual
 ```
 
-Verde: terminado. Amarillo: en curso. El análisis tiene la exploración hecha y falta
-que el equipo lo revise; el [canvas del backend](spdd/prompt/) está escrito y en
-revisión.
+Verde: terminado. Amarillo: en curso. El [canvas del backend](spdd/prompt/) está
+revisado y el código va en curso; al análisis le falta la revisión del equipo.
 
 ## Integrantes y roles
 
@@ -132,7 +129,7 @@ Reglas que seguimos:
 
 | Carpeta | Contenido |
 |---|---|
-| [`requirements/`](requirements/) | Historias y criterios de aceptación (paso 1) |
+| [`requirements/`](requirements/) | Historias y criterios de aceptación (paso 1), y el [enunciado del docente](requirements/enunciado/enunciado.md) |
 | [`spdd/analysis/`](spdd/analysis/) | Análisis: exploración de Open-Meteo y del servicio inestable (paso 3) |
 | [`spdd/template/`](spdd/template/) | Plantilla del canvas REASONS |
 | [`spdd/prompt/`](spdd/prompt/) | Canvas REASONS: el del backend, en revisión (paso 4) |
@@ -193,6 +190,7 @@ caché, medición, métricas, evidencia, alcance y roles.
 | D38 | **Plantillas propias** de `spdd/template/` para seguir SPDD. Cierra P14 | CLI comunitaria OpenSPDD | Ya existen y funcionan con cualquier agente o a mano, todo lo hecho sigue ese formato y no hay nada que instalar | N | 8 |
 | D39 | **Sí a la Parte E** (consumo cruzado, +10), después del backend y **antes del dashboard**. Lo que pide exactamente se detalla en el canvas. Cierra P15 | Hacerla después del dashboard; no hacerla | Sigue la lógica de D09: suma +10 y el dashboard no suma, así que si falta tiempo, que falte el dashboard | O | 8 |
 | D40 | **Roles**: Javier, servicio inestable con Docker y resiliencia (reintentos, compuerta y log de evidencias); Maria Fernanda, cliente de Open-Meteo y API propia + pruebas + README (rutas de ciudades y alertas, caché, idempotencia y colección). El dashboard y la Parte E se reparten al terminar el backend. Cierra P01 | Javier con Open-Meteo y resiliencia; Javier con resiliencia y API propia | Cada uno es dueño de una dependencia de punta a punta: la resiliencia se prueba contra el servicio inestable, y las rutas de ciudades dependen del cliente de Open-Meteo | O | 8 |
+| D41 | La **Parte E** es la del enunciado: consumir un endpoint de otro grupo usando únicamente su documentación OpenAPI, y reportar en el README qué le faltó o le sobró al contrato. Su canvas se escribe al terminar el backend (D39). Cierra P23 | — | No había nada que decidir: faltaba el texto, y el enunciado ya está en [`requirements/enunciado/`](requirements/enunciado/enunciado.md) | R, O | 9 |
 
 ### Riesgos y matices
 
@@ -339,13 +337,10 @@ si se agotaron los intentos o el plazo → error de dependencia (D20):
 
 ## Decisiones pendientes
 
-Los 21 pendientes originales (P01–P21), y P22, que salió en la ronda 7, se cerraron
-entre las rondas 5 y 8; cada decisión dice qué pendiente cierra. Las preguntas nuevas
-se agregan aquí, y no se genera código para esa parte hasta cerrarlas.
-
-| ID | Pregunta | Propuesta para discutir | Bloquea |
-|---|---|---|---|
-| P23 | Qué pide exactamente la Parte E (consumo cruzado). Salió al escribir el canvas: el enunciado no está en el repo | Agregar el texto de la Parte E al repo y escribir su canvas cuando termine el backend (D39) | Parte E |
+**No queda ninguno.** Los 21 pendientes originales (P01–P21), P22 (ronda 7) y P23 (al
+escribir el canvas) están cerrados; cada decisión dice qué pendiente cierra. Si aparece
+una pregunta nueva, se agrega aquí como P24, y no se genera código para esa parte hasta
+cerrarla.
 
 ### Supuestos (confirmados en la ronda 5)
 
