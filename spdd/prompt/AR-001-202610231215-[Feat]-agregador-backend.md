@@ -5,9 +5,10 @@
 | ID | AR-001 |
 | Historia | [AR-001 Story](../../requirements/AR-001-202610171311-[Story]-agregador-resiliente.md) |
 | Análisis | [AR-001 Analysis](../analysis/AR-001-202610171311-[Analysis]-open-meteo-y-servicio-inestable.md) |
-| Decisiones | [Log D01–D40 del README](../../README.md#log-de-decisiones) |
-| Estado | borrador |
-| Revisado por | pendiente |
+| Enunciado | [requirements/enunciado/](../../requirements/enunciado/enunciado.md) |
+| Decisiones | [Log D01–D41 del README](../../README.md#log-de-decisiones) |
+| Estado | revisado por el equipo |
+| Revisado por | Javier, al fusionar el PR #6 (2026-10-23) |
 | Fecha | 2026-10-23 |
 
 Este canvas es la fuente de verdad del comportamiento del backend. Si el código y el
@@ -16,7 +17,7 @@ afirmación cita la decisión de la que sale; lo que no sale de ninguna está en
 sección «Detalles que fija este canvas», para revisarlo junto con el resto.
 
 Fuera de alcance: el dashboard (D08, D10), que va al final y tendrá su propio canvas,
-y la Parte E (D39), que necesita el enunciado ([P23](../../README.md#decisiones-pendientes)).
+y la Parte E (D39, D41), que también tendrá el suyo.
 
 ## R · Requirements (requisitos)
 
